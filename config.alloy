@@ -1,0 +1,53 @@
+// Discover Docker containers via socket
+discovery.docker "default" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+// Extract service name from container name
+discovery.relabel "default" {
+  targets = discovery.docker.default.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "service_name"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "logstream"
+  }
+}
+
+// Collect logs from all Docker containers
+loki.source.docker "default" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.default.output
+  relabel_rules    = discovery.relabel.default.rules
+  labels           = {"platform" = "docker"}
+  forward_to       = [loki.write.cloud.receiver]
+  refresh_interval = "5s"
+}
+
+// Send logs to Grafana Cloud Loki
+loki.write "cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_LOKI_URL") + "/loki/api/v1/push"
+
+    basic_auth {
+      username = sys.env("GRAFANA_LOKI_USERNAME")
+      password = sys.env("GRAFANA_LOGS_WRITE")
+    }
+  }
+
+  external_labels = {
+    "cluster" = "github-analytics",
+    "env"     = "production",
+  }
+}

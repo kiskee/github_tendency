@@ -1,0 +1,99 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ${PROJECT_NAME}-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: ${PROJECT_NAME}-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API Node.js
+  api:
+    build: ./api
+    container_name: ${PROJECT_NAME}-api
+    ports:
+      - "3000:3000"
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      PORT: 3000
+      NODE_ENV: ${NODE_ENV}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./api/src:/app/src
+    networks:
+      - app-network
+    command: npm start
+    restart: unless-stopped
+
+  # Alloy - Log collection → Grafana Cloud Loki
+  alloy:
+    image: grafana/alloy:latest
+    container_name: ${PROJECT_NAME}-alloy
+    user: "0:0"
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - alloy_positions:/var/lib/alloy/positions
+    environment:
+      GRAFANA_LOKI_URL: ${GRAFANA_LOKI_URL}
+      GRAFANA_LOKI_USERNAME: ${GRAFANA_LOKI_USERNAME}
+      GRAFANA_CLOUD_API_KEY: ${GRAFANA_CLOUD_API_KEY}
+      GRAFANA_LOGS_WRITE: ${GRAFANA_LOGS_WRITE}
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  alloy_positions:
+
+networks:
+  app-network:
+    name: ${NETWORK_NAME}
+    driver: bridge

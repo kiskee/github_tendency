@@ -1,0 +1,162 @@
+{
+  "info": {
+    "name": "GitHub Analytics API",
+    "description": "API para busqueda de repos en GitHub + Trends collector",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "item": [
+        {
+          "name": "GET /search/:keyword",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/search/opentelemetry",
+              "host": ["{{baseUrl}}"],
+              "path": ["search", "opentelemetry"]
+            }
+          }
+        },
+        {
+          "name": "GET /search/kubernetes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/search/kubernetes",
+              "host": ["{{baseUrl}}"],
+              "path": ["search", "kubernetes"]
+            }
+          }
+        },
+        {
+          "name": "GET /search/react",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/search/react",
+              "host": ["{{baseUrl}}"],
+              "path": ["search", "react"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Trends",
+      "item": [
+        {
+          "name": "GET /trends",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/trends",
+              "host": ["{{baseUrl}}"],
+              "path": ["trends"]
+            }
+          }
+        },
+        {
+          "name": "GET /trends?keyword=kubernetes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/trends?keyword=kubernetes",
+              "host": ["{{baseUrl}}"],
+              "path": ["trends"],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "kubernetes"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /trends?language=Go",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/trends?language=Go",
+              "host": ["{{baseUrl}}"],
+              "path": ["trends"],
+              "query": [
+                {
+                  "key": "language",
+                  "value": "Go"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /trends?sort=stars&limit=10",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/trends?sort=stars&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["trends"],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "stars"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /trends/stats",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/trends/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["trends", "stats"]
+            }
+          }
+        },
+        {
+          "name": "POST /trends/collect",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/trends/collect",
+              "host": ["{{baseUrl}}"],
+              "path": ["trends", "collect"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
