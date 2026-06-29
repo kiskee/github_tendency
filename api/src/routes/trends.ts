@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../services/database";
 import { collectTrends } from "../jobs/trendsCollector";
+import { getTrends, getTrendsStats, getTrendsCollector } from "../middlewares/metrics"
 
 const router = Router();
 
@@ -65,13 +66,13 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
     }
 
     const result = await pool.query(query, params);
-
+    getTrends.add(1, { status: "success" })
     res.status(200).json({
       total: result.rowCount,
       data: result.rows,
     });
   } catch (error) {
-    console.error("[trends] Query failed:", error);
+    console.error("Error: [trends] Query failed:", error);
     res.status(500).json({ error: "Failed to query trends" });
   }
 });
@@ -88,10 +89,12 @@ router.get("/stats", async (_req: Request, res: Response): Promise<void> => {
         (SELECT MAX(stars) FROM repositories) as max_stars,
         (SELECT language FROM repositories GROUP BY language ORDER BY COUNT(*) DESC LIMIT 1) as top_language
     `);
+    
+    getTrendsStats.add(1, { status: "success" })
 
     res.status(200).json(stats.rows[0]);
   } catch (error) {
-    console.error("[trends] Stats query failed:", error);
+    console.error("Error: [trends] Stats query failed:", error);
     res.status(500).json({ error: "Failed to query stats" });
   }
 });
@@ -101,13 +104,13 @@ router.post("/collect", async (_req: Request, res: Response): Promise<void> => {
   try {
     console.log("[trends] Manual collection triggered");
     const result = await collectTrends();
-
+    getTrendsCollector.add(1, { status: "success" })
     res.status(200).json({
       message: "Collection completed",
       ...result,
     });
   } catch (error) {
-    console.error("[trends] Manual collection failed:", error);
+    console.error("Error: [trends] Manual collection failed:", error);
     res.status(500).json({ error: "Collection failed" });
   }
 });

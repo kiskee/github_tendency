@@ -21,6 +21,18 @@ const cacheHits = meter.createCounter("github_cache_hit_requests_total", {
   description: "Total GitHub cache hit requests",
 });
 
+const getTrends = meter.createCounter("get_trends", {
+  description: "Total Get Trends hit requests",
+});
+
+const getTrendsStats = meter.createCounter("get_trends_stats", {
+  description: "Total Get Trends Stats hit requests",
+});
+
+const getTrendsCollector = meter.createCounter("get_trends_collector", {
+  description: "Total Get Trends Collector hit requests",
+});
+
 export const metricsMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
 
@@ -36,4 +48,4 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
   next();
 };
 
-export { searchRequestsTotal, searchDuration, cacheHits };
+export { searchRequestsTotal, searchDuration, cacheHits, getTrends, getTrendsStats, getTrendsCollector };
