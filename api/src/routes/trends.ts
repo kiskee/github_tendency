@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../services/database";
 import { collectTrends } from "../jobs/trendsCollector";
-import { getTrends, getTrendsStats, getTrendsCollector } from "../middlewares/metrics"
+import { getTrends, getTrendsStats, getTrendsCollector, getTrendsCache, getTrendsStatsCache } from "../middlewares/metrics"
 import { getCached, setCache } from "../services/redis";
 import crypto from "crypto";
 
@@ -18,6 +18,7 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
     const key = trendsCacheKey(req);
     const cached = await getCached<{ total: number; data: unknown[] }>(key);
     if (cached) {
+      getTrendsCache.add(1, { status: "Cache success" })
       res.status(200).json(cached);
       return;
     }
@@ -98,6 +99,7 @@ router.get("/stats", async (_req: Request, res: Response): Promise<void> => {
   try {
     const cached = await getCached<any>("trends:stats");
     if (cached) {
+      getTrendsStatsCache.add(1, { status: "Cache success" })
       res.status(200).json(cached);
       return;
     }

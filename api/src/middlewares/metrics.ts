@@ -3,14 +3,20 @@ import { metrics } from "@opentelemetry/api";
 
 const meter = metrics.getMeter("http-server");
 
-const httpRequestDuration = meter.createHistogram("http_request_duration_seconds", {
-  description: "Duration of HTTP requests in seconds",
-  unit: "s",
-});
+const httpRequestDuration = meter.createHistogram(
+  "http_request_duration_seconds",
+  {
+    description: "Duration of HTTP requests in seconds",
+    unit: "s",
+  },
+);
 
-const searchRequestsTotal = meter.createCounter("github_search_requests_total", {
-  description: "Total GitHub search requests",
-});
+const searchRequestsTotal = meter.createCounter(
+  "github_search_requests_total",
+  {
+    description: "Total GitHub search requests",
+  },
+);
 
 const searchDuration = meter.createHistogram("github_search_duration_seconds", {
   description: "Duration of GitHub searches",
@@ -25,15 +31,27 @@ const getTrends = meter.createCounter("get_trends", {
   description: "Total Get Trends hit requests",
 });
 
+const getTrendsCache = meter.createCounter("get_trends_cache", {
+  description: "Total Get Trends cache hit requests",
+});
+
 const getTrendsStats = meter.createCounter("get_trends_stats", {
   description: "Total Get Trends Stats hit requests",
+});
+
+const getTrendsStatsCache = meter.createCounter("get_trends_stats_cache", {
+  description: "Total Get Trends Stats cache hit requests",
 });
 
 const getTrendsCollector = meter.createCounter("get_trends_collector", {
   description: "Total Get Trends Collector hit requests",
 });
 
-export const metricsMiddleware = (req: Request, res: Response, next: NextFunction) => {
+export const metricsMiddleware = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   const start = Date.now();
 
   res.on("finish", () => {
@@ -48,4 +66,13 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
   next();
 };
 
-export { searchRequestsTotal, searchDuration, cacheHits, getTrends, getTrendsStats, getTrendsCollector };
+export {
+  searchRequestsTotal,
+  searchDuration,
+  cacheHits,
+  getTrends,
+  getTrendsStats,
+  getTrendsCollector,
+  getTrendsCache,
+  getTrendsStatsCache,
+};
