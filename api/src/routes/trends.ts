@@ -2,12 +2,26 @@ import { Router, Request, Response } from "express";
 import { pool } from "../services/database";
 import { collectTrends } from "../jobs/trendsCollector";
 import { getTrends, getTrendsStats, getTrendsCollector } from "../middlewares/metrics"
+import { getCached, setCache } from "../services/redis";
+import crypto from "crypto";
 
 const router = Router();
+
+function trendsCacheKey(req: Request): string {
+  const hash = crypto.createHash("sha256").update(req.originalUrl).digest("hex");
+  return `trends:data:${hash}`;
+}
 
 // GET /trends — traer data de la BD
 router.get("/", async (req: Request, res: Response): Promise<void> => {
   try {
+    const key = trendsCacheKey(req);
+    const cached = await getCached<{ total: number; data: unknown[] }>(key);
+    if (cached) {
+      res.status(200).json(cached);
+      return;
+    }
+
     const { keyword, language, sort, limit } = req.query;
 
     let query = `
@@ -67,10 +81,12 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
 
     const result = await pool.query(query, params);
     getTrends.add(1, { status: "success" })
-    res.status(200).json({
+    const body = {
       total: result.rowCount,
       data: result.rows,
-    });
+    };
+    await setCache(key, body);
+    res.status(200).json(body);
   } catch (error) {
     console.error("Error: [trends] Query failed:", error);
     res.status(500).json({ error: "Failed to query trends" });
@@ -80,6 +96,12 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
 // GET /trends/stats — resumen de la BD
 router.get("/stats", async (_req: Request, res: Response): Promise<void> => {
   try {
+    const cached = await getCached<any>("trends:stats");
+    if (cached) {
+      res.status(200).json(cached);
+      return;
+    }
+
     const stats = await pool.query(`
       SELECT
         (SELECT COUNT(*) FROM searches) as total_keywords,
@@ -92,7 +114,9 @@ router.get("/stats", async (_req: Request, res: Response): Promise<void> => {
     
     getTrendsStats.add(1, { status: "success" })
 
-    res.status(200).json(stats.rows[0]);
+    const body = stats.rows[0];
+    await setCache("trends:stats", body);
+    res.status(200).json(body);
   } catch (error) {
     console.error("Error: [trends] Stats query failed:", error);
     res.status(500).json({ error: "Failed to query stats" });

@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
 import { searchGitHubRepos } from "../services/github";
 import { pool } from "../services/database";
+import { redisClient } from "../services/redis";
 
 const tracer = trace.getTracer("trends-collector");
 
@@ -13,6 +14,22 @@ interface CollectResult {
   reposSaved: number;
   durationMs: number;
   errors: string[];
+}
+
+async function invalidateTrendsCache(): Promise<void> {
+  try {
+    let cursor = 0;
+    do {
+      const result = await redisClient.scan(cursor, { MATCH: "trends:*", COUNT: 100 });
+      cursor = result.cursor;
+      if (result.keys.length > 0) {
+        await redisClient.del(result.keys);
+      }
+    } while (cursor !== 0);
+    console.log("[cache] Trends cache invalidated after collection");
+  } catch (err) {
+    console.error("[cache] Failed to invalidate trends cache:", err);
+  }
 }
 
 export async function collectTrends(): Promise<CollectResult> {
@@ -89,6 +106,8 @@ export async function collectTrends(): Promise<CollectResult> {
       span.setAttribute("trends.keywords_count", KEYWORDS.length);
       span.setStatus({ code: SpanStatusCode.OK });
       console.log(`[trends] Collection done in ${duration}ms`);
+
+      await invalidateTrendsCache();
 
       return {
         keywordsProcessed: KEYWORDS.length,
