@@ -27,7 +27,7 @@ app.use(globalLimiter);
 
 // Public routes
 app.use("/health", healthRouter);
-app.use("/search", searchLimiter, searchRouter);
+app.use("/search", authMiddleware, searchLimiter, searchRouter);
 
 // Protected routes
 app.use("/trends", authMiddleware, trendsLimiter, trendsRouter);

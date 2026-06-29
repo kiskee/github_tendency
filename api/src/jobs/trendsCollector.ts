@@ -5,7 +5,7 @@ import { pool } from "../services/database";
 
 const tracer = trace.getTracer("trends-collector");
 
-const KEYWORDS = (process.env.TREND_KEYWORDS || "opentelemetry,kubernetes,go,ts").split(",");
+const KEYWORDS = (process.env.TREND_KEYWORDS || "typescript,javascript,go,dart").split(",");
 const SCHEDULE = process.env.CRON_SCHEDULE || "0 * * * *";
 
 interface CollectResult {
