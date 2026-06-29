@@ -6,7 +6,7 @@ import { redisClient } from "../services/redis";
 
 const tracer = trace.getTracer("trends-collector");
 
-const KEYWORDS = (process.env.TREND_KEYWORDS || "typescript,javascript,go,dart").split(",");
+const KEYWORDS = (process.env.TREND_KEYWORDS!).split(",");
 const SCHEDULE = process.env.CRON_SCHEDULE || "0 * * * *";
 
 interface CollectResult {
