@@ -6,13 +6,15 @@ import { redisClient } from "../services/redis";
 
 const tracer = trace.getTracer("trends-collector");
 
-const KEYWORDS = process.env.TREND_KEYWORDS?.split(",").filter(Boolean) ?? [];
-const SCHEDULE = process.env.CRON_SCHEDULE || "0 * * * *";
-
-if (KEYWORDS.length === 0) {
-  console.error("[trends] FATAL: TREND_KEYWORDS env var not set or empty");
-  process.exit(1);
-}
+const KEYWORDS = [
+  "typescript", "javascript", "python", "go", "rust",
+  "java", "kotlin", "swift", "cpp", "ruby",
+  "react", "vue", "angular", "svelte", "nextjs",
+  "django", "spring", "kubernetes", "docker", "terraform",
+  "machine-learning", "blockchain", "deno", "bun",
+  "prisma", "tailwindcss", "trpc", "astro", "tauri", "solidity"
+];
+const SCHEDULE = "0 * * * *";
 
 interface CollectResult {
   keywordsProcessed: number;

@@ -1,16 +1,9 @@
-import "dotenv/config";
 import "./otel/config";
+import dotenv from "dotenv";
+dotenv.config();
 import { app } from "./app";
 import { redisClient } from "./services/redis";
 import { startTrendsCollector } from "./jobs/trendsCollector";
-
-const requiredEnvs = ["TREND_KEYWORDS", "GITHUB_TOKEN", "DATABASE_URL"];
-for (const env of requiredEnvs) {
-  if (!process.env[env]) {
-    console.error(`FATAL: ${env} no está definido en .env`);
-    process.exit(1);
-  }
-}
 
 const PORT = process.env.PORT || 3000;
 
