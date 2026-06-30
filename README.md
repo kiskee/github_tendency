@@ -110,21 +110,6 @@ GET /trends/stats
   }
 ```
 
-```
-POST /trends/collect
-```
-
-Trigger manual de colección (ejecuta el mismo job del cron).
-
-```
-→ 200 {
-    keywordsProcessed: 30,
-    reposSaved: 285,
-    durationMs: 12450,
-    errors: []
-  }
-```
-
 ### Report
 
 ```
@@ -282,7 +267,6 @@ Colección incluye:
 - `GET /trends` (con filtros: keyword, language, sort, limit)
 - `GET /trends/stats`
 - `GET /trends/report`
-- `POST /trends/collect`
 
 ---
 
@@ -307,7 +291,7 @@ Colección incluye:
 │   │   ├── routes/
 │   │   │   ├── health.ts          # GET /health
 │   │   │   ├── search.ts          # GET /search/:keyword
-│   │   │   └── trends.ts          # GET /trends, GET /trends/stats, GET /trends/report, POST /trends/collect
+│   │   │   └── trends.ts          # GET /trends, GET /trends/stats, GET /trends/report
 │   │   └── services/
 │   │       ├── database.ts        # PostgreSQL pool
 │   │       ├── github.ts          # GitHub GraphQL client

@@ -1,9 +1,9 @@
+import "dotenv/config";
 import "./otel/config";
-import dotenv from "dotenv";
-dotenv.config();
 import { app } from "./app";
 import { redisClient } from "./services/redis";
 import { startTrendsCollector } from "./jobs/trendsCollector";
+import { startPoster } from "./jobs/xPoster";
 
 const PORT = process.env.PORT || 3000;
 
@@ -14,6 +14,7 @@ redisClient.connect().then(() => console.log("Redis Connected")).catch(
 );
 
 startTrendsCollector();
+startPoster();
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

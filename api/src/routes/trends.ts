@@ -1,7 +1,6 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../services/database";
-import { collectTrends } from "../jobs/trendsCollector";
-import { getTrends, getTrendsStats, getTrendsCollector, getTrendsReport, getTrendsCache, getTrendsStatsCache } from "../middlewares/metrics"
+import { getTrends, getTrendsStats, getTrendsReport, getTrendsCache, getTrendsStatsCache } from "../middlewares/metrics"
 import { generateReport } from "../services/reports"
 import { getCached, setCache } from "../services/redis";
 import crypto from "crypto";
@@ -126,27 +125,19 @@ router.get("/stats", async (_req: Request, res: Response): Promise<void> => {
   }
 });
 
-// POST /trends/collect — trigger manual del job
-router.post("/collect", async (_req: Request, res: Response): Promise<void> => {
-  try {
-    console.log("[trends] Manual collection triggered");
-    const result = await collectTrends();
-    getTrendsCollector.add(1, { status: "success" })
-    res.status(200).json({
-      message: "Collection completed",
-      ...result,
-    });
-  } catch (error) {
-    console.error("Error: [trends] Manual collection failed:", error);
-    res.status(500).json({ error: "Collection failed" });
-  }
-});
-
 // GET /trends/report — reporte con insights agregados
 router.get("/report", async (_req: Request, res: Response): Promise<void> => {
   try {
-    getTrendsReport.add(1, { status: "success" })
+    const cached = await getCached<any>("trends:report");
+    if (cached) {
+      getTrendsReport.add(1, { status: "success" })
+      res.status(200).json(cached);
+      return;
+    }
+
     const report = await generateReport();
+    await setCache("trends:report", report);
+    getTrendsReport.add(1, { status: "success" })
     res.status(200).json(report);
   } catch (error) {
     console.error("Error: [trends] Report generation failed:", error);

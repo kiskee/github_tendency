@@ -146,17 +146,6 @@
           }
         },
         {
-          "name": "POST /trends/collect",
-          "request": {
-            "method": "POST",
-            "url": {
-              "raw": "{{baseUrl}}/trends/collect",
-              "host": ["{{baseUrl}}"],
-              "path": ["trends", "collect"]
-            }
-          }
-        },
-        {
           "name": "GET /trends/report",
           "request": {
             "method": "GET",
