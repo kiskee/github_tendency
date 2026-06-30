@@ -51,6 +51,10 @@ const getTrendsReport = meter.createCounter("get_trends_report", {
   description: "Total Get Trends Report requests",
 });
 
+const getTrendsReportCache = meter.createCounter("get_trends_report_cache", {
+  description: "Total Get Trends Cache Report requests",
+});
+
 export const metricsMiddleware = (
   req: Request,
   res: Response,
@@ -80,4 +84,5 @@ export {
   getTrendsReport,
   getTrendsCache,
   getTrendsStatsCache,
+  getTrendsReportCache
 };
