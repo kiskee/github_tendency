@@ -1,8 +1,6 @@
-import { BskyAgent } from "@atproto/api";
+let agent: any = null;
 
-let agent: BskyAgent | null = null;
-
-async function getAgent(): Promise<BskyAgent> {
+async function getAgent() {
   if (!agent) {
     const identifier = process.env.BLUESKY_USERNAME;
     const password = process.env.BLUESKY_PASSWORD;
@@ -11,6 +9,7 @@ async function getAgent(): Promise<BskyAgent> {
       throw new Error("Missing Bluesky credentials");
     }
 
+    const { BskyAgent } = await import("@atproto/api");
     agent = new BskyAgent({ service: "https://bsky.social" });
     await agent.login({ identifier, password });
   }
