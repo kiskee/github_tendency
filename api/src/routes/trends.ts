@@ -1,7 +1,8 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../services/database";
 import { collectTrends } from "../jobs/trendsCollector";
-import { getTrends, getTrendsStats, getTrendsCollector, getTrendsCache, getTrendsStatsCache } from "../middlewares/metrics"
+import { getTrends, getTrendsStats, getTrendsCollector, getTrendsReport, getTrendsCache, getTrendsStatsCache } from "../middlewares/metrics"
+import { generateReport } from "../services/reports"
 import { getCached, setCache } from "../services/redis";
 import crypto from "crypto";
 
@@ -138,6 +139,18 @@ router.post("/collect", async (_req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error("Error: [trends] Manual collection failed:", error);
     res.status(500).json({ error: "Collection failed" });
+  }
+});
+
+// GET /trends/report — reporte con insights agregados
+router.get("/report", async (_req: Request, res: Response): Promise<void> => {
+  try {
+    getTrendsReport.add(1, { status: "success" })
+    const report = await generateReport();
+    res.status(200).json(report);
+  } catch (error) {
+    console.error("Error: [trends] Report generation failed:", error);
+    res.status(500).json({ error: "Failed to generate report" });
   }
 });
 

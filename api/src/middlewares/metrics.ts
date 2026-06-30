@@ -47,6 +47,10 @@ const getTrendsCollector = meter.createCounter("get_trends_collector", {
   description: "Total Get Trends Collector hit requests",
 });
 
+const getTrendsReport = meter.createCounter("get_trends_report", {
+  description: "Total Get Trends Report requests",
+});
+
 export const metricsMiddleware = (
   req: Request,
   res: Response,
@@ -73,6 +77,7 @@ export {
   getTrends,
   getTrendsStats,
   getTrendsCollector,
+  getTrendsReport,
   getTrendsCache,
   getTrendsStatsCache,
 };
