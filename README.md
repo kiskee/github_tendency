@@ -20,11 +20,11 @@ API que busca repositorios trending en GitHub vía GraphQL, los almacena en Post
 ```
 [GitHub GraphQL API]
         ↓
-[trendsCollector (cron cada hora)]  →  busca 30 keywords
+[trendsCollector (cron cada hora)]  →  busca ~260 keywords
         ↓
-[PostgreSQL]  ←  UPSERT searches + repositories + search_repository
-        ↑
-[Redis]  ←  cache search:{keyword} (60s) + trends:* (variables)
+[PostgreSQL]  ←  UPSERT searches + repositories + search_repository + repository_snapshots
+         ↑  ←  computed scores (stars_24h, stars_7d, score)
+[Redis]  ←  cache search:{keyword}:{first} (60s) + trends:* (variables)
         ↑
 [REST API]  ←  Express con auth x-api-key
         ↓
@@ -61,6 +61,12 @@ GET /search/:keyword
 
 Busca en GitHub GraphQL, cachea en Redis 60s.
 
+Query params:
+
+| Query param | Ejemplo            | Descripción              |
+|-------------|--------------------|--------------------------|
+| `first`     | `?first=25`        | Repos por búsqueda (1-100, default 10) |
+
 ```
 → 200 {
     keyword: "kubernetes",
@@ -78,6 +84,9 @@ Busca en GitHub GraphQL, cachea en Redis 60s.
         language: "Go",
         createdAt: "2014-06-06T...",
         lastPush: "2025-01-...",
+        stars24h: 120,
+        stars7d: 850,
+        score: 1847.5
       }
     ]
   }
@@ -89,14 +98,40 @@ Busca en GitHub GraphQL, cachea en Redis 60s.
 GET /trends
 ```
 
-Lista trends alamacenados con filtros:
+Lista trends almacenados con filtros y paginación:
 
-| Query param | Ejemplo            | Descripción              |
-|-------------|--------------------|--------------------------|
-| `keyword`   | `?keyword=kubernetes` | Filtro ILIKE          |
-| `language`  | `?language=Go`     | Filtro por lenguaje       |
-| `sort`      | `?sort=stars`      | `stars` (default) o `count` |
-| `limit`     | `?limit=10`        | Default 20                |
+| Query param | Ejemplo            | Descripción                                  |
+|-------------|--------------------|----------------------------------------------|
+| `keyword`   | `?keyword=kubernetes` | Filtro ILIKE                              |
+| `language`  | `?language=Go`     | Filtro por lenguaje                           |
+| `sort`      | `?sort=score`      | `stars`, `count`, `score` (default: `last_searched_at`) |
+| `limit`     | `?limit=20`        | Keywords por página (default 20, max 100)     |
+| `page`      | `?page=1`          | Página (default 1)                            |
+| `repoLimit` | `?repoLimit=10`    | Repos por keyword (default 10, max 50)        |
+
+```
+→ 200 {
+    total: 264,
+    page: 1,
+    limit: 20,
+    repoLimit: 10,
+    data: [
+      {
+        keyword: "rust",
+        search_count: 12,
+        repositories: [
+          {
+            fullName: "rust-lang/rust",
+            stars: 98000,
+            stars24h: 45,
+            stars7d: 310,
+            score: 1254.3
+          }
+        ]
+      }
+    ]
+  }
+```
 
 ```
 GET /trends/stats
@@ -150,13 +185,19 @@ Reporte con insights agregados de toda la data colectada.
 
 `trendsCollector` corre cada hora (configurable vía `SCHEDULE` en `api/src/jobs/trendsCollector.ts`).
 
-Keywords colectadas (hardcodeadas):
+Por cada keyword:
+
+1. Busca repos en GitHub GraphQL.
+2. Hace UPSERT en `searches`, `repositories` y `search_repository`.
+3. Guarda snapshot en `repository_snapshots`.
+4. Calcula `stars_24h`, `stars_7d` y `score` comparando contra snapshots previas.
+5. Invalida caché de trends.
+
+Keywords sembradas automáticamente al arrancar (~260 palabras en `api/src/services/database.ts`), agrupadas por categoría:
 
 ```
-typescript, javascript, python, go, rust, java, kotlin, swift,
-cpp, ruby, react, vue, angular, svelte, nextjs, django, spring,
-kubernetes, docker, terraform, machine-learning, blockchain,
-deno, bun, prisma, tailwindcss, trpc, astro, tauri, solidity
+language, frontend, backend, ai-ml, database, devops, mobile,
+desktop, tools, testing, data, blockchain, gamedev, general
 ```
 
 ---

@@ -302,8 +302,29 @@ export async function runMigrations(): Promise<void> {
       ADD COLUMN IF NOT EXISTS topics JSONB,
       ADD COLUMN IF NOT EXISTS homepage_url VARCHAR(512),
       ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false,
-      ADD COLUMN IF NOT EXISTS disk_usage INT DEFAULT 0
+      ADD COLUMN IF NOT EXISTS disk_usage INT DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS stars_24h INT DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS stars_7d INT DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS score NUMERIC(12,2) DEFAULT 0
     `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS repository_snapshots (
+        id SERIAL PRIMARY KEY,
+        repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        stars INT NOT NULL,
+        forks INT NOT NULL,
+        open_issues INT NOT NULL,
+        collected_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_repositories_score ON repositories(score DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_repositories_stars_24h ON repositories(stars_24h DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_repositories_stars_7d ON repositories(stars_7d DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_snapshots_repo_collected ON repository_snapshots(repository_id, collected_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_snapshots_collected ON repository_snapshots(collected_at)`);
+
     console.log("[db] Migrations applied successfully");
   } catch (err) {
     console.error("[db] Migration failed:", err);

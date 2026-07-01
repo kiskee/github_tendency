@@ -105,14 +105,16 @@ export interface SearchResult {
   rateLimit?: { cost: number; remaining: number; resetAt: string };
 }
 
-export async function searchGitHubRepos(keyword: string, token?: string): Promise<SearchResult | null> {
+export async function searchGitHubRepos(keyword: string, token?: string, first = 10): Promise<SearchResult | null> {
   const activeToken = token || GITHUB_TOKEN_SEARCH;
+  const pageSize = Math.max(1, Math.min(first, 100));
 
   return tracer.startActiveSpan("github.graphql.search", async (span) => {
     try {
       span.setAttribute("github.search.keyword", keyword);
+      span.setAttribute("github.search.first", pageSize);
 
-      const cacheKey = `search:${keyword}`;
+      const cacheKey = `search:${keyword}:${pageSize}`;
       const cached = await redisClient.get(cacheKey);
 
       if (cached) {
@@ -129,7 +131,7 @@ export async function searchGitHubRepos(keyword: string, token?: string): Promis
         GITHUB_GRAPHQL_URL,
         {
           query: SEARCH_REPOSITORIES_QUERY,
-          variables: { query: keyword, first: 10 },
+          variables: { query: keyword, first: pageSize },
         },
         {
           headers: {

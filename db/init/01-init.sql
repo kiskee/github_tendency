@@ -30,7 +30,10 @@ CREATE TABLE IF NOT EXISTS repositories (
   language VARCHAR(50),
   created_at TIMESTAMP,
   pushed_at TIMESTAMP,
-  collected_at TIMESTAMP DEFAULT NOW()
+  collected_at TIMESTAMP DEFAULT NOW(),
+  stars_24h INT DEFAULT 0,
+  stars_7d INT DEFAULT 0,
+  score NUMERIC(12,2) DEFAULT 0
 );
 
 -- Crear tabla de relación search-repository
@@ -61,4 +64,19 @@ CREATE INDEX IF NOT EXISTS idx_keywords_active ON keywords(is_active) WHERE is_a
 CREATE INDEX IF NOT EXISTS idx_searches_keyword ON searches(keyword);
 CREATE INDEX IF NOT EXISTS idx_repositories_stars ON repositories(stars DESC);
 CREATE INDEX IF NOT EXISTS idx_repositories_language ON repositories(language);
+CREATE INDEX IF NOT EXISTS idx_repositories_score ON repositories(score DESC);
+CREATE INDEX IF NOT EXISTS idx_repositories_stars_24h ON repositories(stars_24h DESC);
+CREATE INDEX IF NOT EXISTS idx_repositories_stars_7d ON repositories(stars_7d DESC);
 CREATE INDEX IF NOT EXISTS idx_search_repository_search ON search_repository(search_id);
+
+CREATE TABLE IF NOT EXISTS repository_snapshots (
+  id SERIAL PRIMARY KEY,
+  repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+  stars INT NOT NULL,
+  forks INT NOT NULL,
+  open_issues INT NOT NULL,
+  collected_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_snapshots_repo_collected ON repository_snapshots(repository_id, collected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_snapshots_collected ON repository_snapshots(collected_at);
