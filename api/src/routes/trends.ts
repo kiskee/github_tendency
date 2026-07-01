@@ -28,17 +28,26 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
     let query = `
       SELECT s.id, s.keyword, s.search_count, s.last_searched_at, s.created_at,
              json_agg(json_build_object(
-               'id', r.id,
+               'githubId', r.github_id,
                'name', r.name,
-               'full_name', r.full_name,
+               'fullName', r.full_name,
                'description', r.description,
                'url', r.url,
                'owner', r.owner,
                'stars', r.stars,
                'forks', r.forks,
+               'watchers', r.watchers,
+               'openIssues', r.open_issues,
+               'license', r.license,
                'language', r.language,
-               'created_at', r.created_at,
-               'pushed_at', r.pushed_at
+               'languages', r.languages,
+               'topics', r.topics,
+               'latestRelease', r.latest_release,
+               'homepageUrl', r.homepage_url,
+               'isArchived', r.is_archived,
+               'diskUsage', r.disk_usage,
+               'createdAt', r.created_at,
+               'lastPush', r.pushed_at
              ) ORDER BY r.stars DESC) as repositories
       FROM searches s
       JOIN search_repository sr ON sr.search_id = s.id
