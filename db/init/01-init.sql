@@ -19,6 +19,14 @@ CREATE TABLE IF NOT EXISTS repositories (
   stars INT DEFAULT 0,
   forks INT DEFAULT 0,
   watchers INT DEFAULT 0,
+  open_issues INT DEFAULT 0,
+  license VARCHAR(100),
+  latest_release VARCHAR(255),
+  languages JSONB,
+  topics JSONB,
+  homepage_url VARCHAR(512),
+  is_archived BOOLEAN DEFAULT false,
+  disk_usage INT DEFAULT 0,
   language VARCHAR(50),
   created_at TIMESTAMP,
   pushed_at TIMESTAMP,
@@ -34,6 +42,20 @@ CREATE TABLE IF NOT EXISTS search_repository (
   created_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(search_id, repository_id)
 );
+
+-- Crear tabla de keywords rotativas
+CREATE TABLE IF NOT EXISTS keywords (
+  id SERIAL PRIMARY KEY,
+  keyword VARCHAR(255) UNIQUE NOT NULL,
+  category VARCHAR(100) NOT NULL DEFAULT 'general',
+  is_active BOOLEAN DEFAULT true,
+  times_scanned INT DEFAULT 0,
+  last_scanned_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_keywords_category ON keywords(category);
+CREATE INDEX IF NOT EXISTS idx_keywords_active ON keywords(is_active) WHERE is_active = true;
 
 -- Crear índices
 CREATE INDEX IF NOT EXISTS idx_searches_keyword ON searches(keyword);

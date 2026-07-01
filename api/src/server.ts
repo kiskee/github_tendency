@@ -2,6 +2,7 @@ import "dotenv/config";
 import "./otel/config";
 import { app } from "./app";
 import { redisClient } from "./services/redis";
+import { runMigrations } from "./services/database";
 import { startTrendsCollector } from "./jobs/trendsCollector";
 import { startPoster } from "./jobs/xPoster";
 
@@ -13,8 +14,10 @@ redisClient.connect().then(() => console.log("Redis Connected")).catch(
   err => { console.error('Redis err:', err); process.exit(1); }
 );
 
-startTrendsCollector();
-startPoster();
+runMigrations().then(() => {
+  startTrendsCollector();
+  startPoster();
+});
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
