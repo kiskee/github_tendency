@@ -1,8 +1,8 @@
 import { Router, Request, Response } from "express";
-import { pool } from "../services/database";
-import { getTrends, getTrendsStats, getTrendsReport, getTrendsCache, getTrendsStatsCache, getTrendsReportCache } from "../middlewares/metrics"
-import { generateReport } from "../services/reports"
-import { getCached, setCache } from "../services/redis";
+import { pool } from "../services/database.js";
+import { getTrends, getTrendsStats, getTrendsReport, getTrendsCache, getTrendsStatsCache, getTrendsReportCache } from "../middlewares/metrics.js"
+import { generateReport } from "../services/reports.js"
+import { getCached, setCache } from "../services/redis.js";
 import crypto from "crypto";
 
 const router = Router();

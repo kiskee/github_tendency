@@ -1,10 +1,10 @@
 import "dotenv/config";
 import "./otel/config";
-import { app } from "./app";
-import { redisClient } from "./services/redis";
-import { runMigrations } from "./services/database";
-import { startTrendsCollector } from "./jobs/trendsCollector";
-import { startPoster } from "./jobs/xPoster";
+import { app } from "./app.js";
+import { redisClient } from "./services/redis.js";
+import { runMigrations } from "./services/database.js";
+import { startTrendsCollector } from "./jobs/trendsCollector.js";
+import { startPoster } from "./jobs/xPoster.js";
 
 const PORT = process.env.PORT || 3000;
 

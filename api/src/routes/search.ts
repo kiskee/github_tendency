@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { searchGitHubRepos } from "../services/github";
+import { searchGitHubRepos } from "../services/github.js";
 
 const router = Router();
 

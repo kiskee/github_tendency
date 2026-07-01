@@ -1,6 +1,6 @@
 import cron from "node-cron";
-import { generateReport } from "../services/reports";
-import { postToBluesky } from "../services/bluesky";
+import { generateReport } from "../services/reports.js";
+import { postToBluesky } from "../services/bluesky.js";
 
 const DASHBOARD_URL = "https://github-tendency.vercel.app";
 

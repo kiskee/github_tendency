@@ -1,7 +1,7 @@
 import axios from "axios";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
-import { searchRequestsTotal, cacheHits } from "../middlewares/metrics";
-import { redisClient } from "../server";
+import { searchRequestsTotal, cacheHits } from "../middlewares/metrics.js";
+import { redisClient } from "../server.js";
 
 const tracer = trace.getTracer("github-analytics-api");
 

@@ -1,4 +1,4 @@
-import { pool } from "./database";
+import { pool } from "./database.js";
 
 interface TopRepo {
   full_name: string;

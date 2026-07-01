@@ -1,8 +1,8 @@
 import cron from "node-cron";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
-import { searchGitHubRepos } from "../services/github";
-import { pool } from "../services/database";
-import { redisClient } from "../services/redis";
+import { searchGitHubRepos } from "../services/github.js";
+import { pool } from "../services/database.js";
+import { redisClient } from "../services/redis.js";
 
 const tracer = trace.getTracer("trends-collector");
 

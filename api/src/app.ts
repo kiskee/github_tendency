@@ -1,13 +1,13 @@
 import express, { Express, NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import cors from "cors";
-import { metricsMiddleware } from "./middlewares/metrics";
-import { authMiddleware } from "./middlewares/auth";
-import { tracingMiddleware } from "./middlewares/tracing";
-import { globalLimiter, searchLimiter, trendsLimiter } from "./config/rateLimiters";
-import searchRouter from "./routes/search";
-import healthRouter from "./routes/health";
-import trendsRouter from "./routes/trends";
+import { metricsMiddleware } from "./middlewares/metrics.js";
+import { authMiddleware } from "./middlewares/auth.js";
+import { tracingMiddleware } from "./middlewares/tracing.js";
+import { globalLimiter, searchLimiter, trendsLimiter } from "./config/rateLimiters.js";
+import searchRouter from "./routes/search.js";
+import healthRouter from "./routes/health.js";
+import trendsRouter from "./routes/trends.js";
 
 const app: Express = express();
 
