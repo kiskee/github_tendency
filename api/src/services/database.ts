@@ -325,6 +325,36 @@ export async function runMigrations(): Promise<void> {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_snapshots_repo_collected ON repository_snapshots(repository_id, collected_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_snapshots_collected ON repository_snapshots(collected_at)`);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'user',
+        email_verified BOOLEAN DEFAULT false,
+        verification_token VARCHAR(255),
+        password_reset_token VARCHAR(255),
+        password_reset_expires TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_verification ON users(verification_token)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_reset ON users(password_reset_token)`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash VARCHAR(255) UNIQUE NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)`);
+
     console.log("[db] Migrations applied successfully");
   } catch (err) {
     console.error("[db] Migration failed:", err);

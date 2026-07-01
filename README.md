@@ -38,13 +38,30 @@ API que busca repositorios trending en GitHub vía GraphQL, los almacena en Post
 
 ### Auth
 
-Todas las rutas excepto `/health` requieren:
+Las rutas públicas (`/search`, `/trends`, `/trends/*`) requieren:
 
 ```
 x-api-key: <API_KEY>
 ```
 
 O `Authorization: Bearer <API_KEY>`.
+
+Las rutas de usuario (`/me`, y próximamente repos/billing) requieren sesión JWT en cookies httpOnly.
+
+### User Auth
+
+Endpoints de autenticación propia:
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/auth/register` | Registro con email + password. Envia email de verificación. |
+| `GET` | `/auth/verify-email?token=...` | Verifica cuenta. |
+| `POST` | `/auth/login` | Login. Devuelve cookies JWT. |
+| `POST` | `/auth/refresh` | Renueva access token con refresh cookie. |
+| `POST` | `/auth/logout` | Cierra sesión. |
+| `POST` | `/auth/forgot-password` | Envía link de reset. |
+| `POST` | `/auth/reset-password` | Cambia contraseña con token. |
+| `GET` | `/me` | Perfil del usuario autenticado. |
 
 ### Health
 
@@ -256,6 +273,14 @@ Ver `.env`:
 | `GRAFANA_LOKI_USERNAME`          | —         | Usuario Loki                         |
 | `GRAFANA_CLOUD_API_KEY`          | —         | API key Grafana Cloud                |
 | `GRAFANA_LOGS_WRITE`             | —         | Token write para Loki                |
+| `JWT_ACCESS_SECRET`              | ✅        | Secret para access tokens            |
+| `JWT_REFRESH_SECRET`             | ✅        | Secret para refresh tokens           |
+| `JWT_ACCESS_EXPIRES_IN`          | —         | TTL access token (default 15m)       |
+| `JWT_REFRESH_EXPIRES_IN`         | —         | TTL refresh token (default 7d)       |
+| `COOKIE_SECURE`                  | —         | Secure flag cookies (default false)  |
+| `FRONTEND_URL`                   | —         | URL frontend para links de email     |
+| `RESEND_API_KEY`                 | —         | API key de Resend                    |
+| `EMAIL_FROM`                     | —         | Remitente de emails (default Resend) |
 
 ---
 
@@ -304,10 +329,13 @@ Variable: `baseUrl = http://localhost:3000`
 Colección incluye:
 
 - `GET /health`
-- `GET /search/{keyword}` (3 ejemplos)
-- `GET /trends` (con filtros: keyword, language, sort, limit)
+- Auth: `/auth/register`, `/auth/verify-email`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/forgot-password`, `/auth/reset-password`, `/me`
+- `GET /search/{keyword}` (3 ejemplos, incluyendo `?first=`)
+- `GET /trends` (con filtros: keyword, language, sort, limit, page, repoLimit)
 - `GET /trends/stats`
 - `GET /trends/report`
+
+Variables: `baseUrl`, `apiKey`, `email`, `password`, `verificationToken`, `resetToken`.
 
 ---
 
