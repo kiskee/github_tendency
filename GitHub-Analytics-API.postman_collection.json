@@ -192,7 +192,7 @@
           "name": "GET /auth/debug/tokens (dev only)",
           "request": {
             "method": "GET",
-            "description": "Dev only. Devuelve verification_token y password_reset_token para un usuario sin depender de que llegue el email. Usar cuando Resend no entrega correos con dominio de prueba.",
+            "description": "Dev only. Devuelve verification_token y password_reset_token para un usuario sin depender de que llegue el email. Usar cuando el SMTP no entrega correos.",
             "url": {
               "raw": "{{baseUrl}}/auth/debug/tokens?email={{email}}",
               "host": ["{{baseUrl}}"],

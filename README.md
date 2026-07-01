@@ -279,8 +279,12 @@ Ver `.env`:
 | `JWT_REFRESH_EXPIRES_IN`         | —         | TTL refresh token (default 7d)       |
 | `COOKIE_SECURE`                  | —         | Secure flag cookies (default false)  |
 | `FRONTEND_URL`                   | —         | URL frontend para links de email     |
-| `RESEND_API_KEY`                 | —         | API key de Resend                    |
-| `EMAIL_FROM`                     | —         | Remitente de emails (default Resend) |
+| `GOOGLE_HOST`                    | —         | Servidor SMTP Gmail                  |
+| `GOOGLE_PORT`                    | —         | Puerto SMTP (default 587)            |
+| `GOOGLE_LONNSOM`                 | —         | Email de Gmail                       |
+| `GOOGLE_PS`                      | —         | App Password de Gmail                |
+| `GOOGLE_PS2`                     | —         | App Password secundaria (fallback)   |
+| `EMAIL_FROM`                     | —         | Remitente de emails                  |
 
 ---
 

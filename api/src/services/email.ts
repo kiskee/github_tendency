@@ -1,57 +1,72 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import { FRONTEND_URL } from "../config/auth.js";
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const FROM = process.env.EMAIL_FROM || "onboarding@resend.dev";
+const GOOGLE_HOST = process.env.GOOGLE_HOST || "smtp.gmail.com";
+const GOOGLE_PORT = parseInt(process.env.GOOGLE_PORT || "587", 10);
+const GOOGLE_USER = process.env.GOOGLE_LONNSOM;
+const GOOGLE_PASS = process.env.GOOGLE_PS;
+const GOOGLE_PASS2 = process.env.GOOGLE_PS2;
+const EMAIL_FROM = process.env.EMAIL_FROM || GOOGLE_USER || "noreply@example.com";
 
-export async function sendVerificationEmail(to: string, token: string): Promise<void> {
-  const url = `${FRONTEND_URL}/verify-email?token=${token}`;
+function createTransporter(password: string) {
+  return nodemailer.createTransport({
+    host: GOOGLE_HOST,
+    port: GOOGLE_PORT,
+    secure: GOOGLE_PORT === 465,
+    auth: {
+      user: GOOGLE_USER,
+      pass: password,
+    },
+  });
+}
 
-  if (!resend) {
-    console.log(`[email] No RESEND_API_KEY. Verification link for ${to}: ${url}`);
+async function sendMail(
+  to: string,
+  subject: string,
+  html: string,
+): Promise<void> {
+  if (!GOOGLE_USER || !GOOGLE_PASS) {
+    console.log(`[email] Missing GOOGLE_LONNSOM or GOOGLE_PS. Email not sent to ${to}`);
     return;
   }
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from: FROM,
-      to,
-      subject: "Verifica tu cuenta de GitHub Trends",
-      html: `<p>Haz clic en el siguiente enlace para verificar tu cuenta:</p><p><a href="${url}">${url}</a></p>`,
-    });
+  const passwords = [GOOGLE_PASS, GOOGLE_PASS2].filter(Boolean) as string[];
+  let lastError: unknown;
 
-    if (error) {
-      console.error(`[email] Resend error sending to ${to}:`, error);
-    } else {
-      console.log(`[email] Verification email sent to ${to}. Id:`, data?.id);
+  for (const password of passwords) {
+    const transporter = createTransporter(password);
+    try {
+      const info = await transporter.sendMail({
+        from: EMAIL_FROM,
+        to,
+        subject,
+        html,
+      });
+      console.log(`[email] Sent to ${to}. MessageId: ${info.messageId}`);
+      return;
+    } catch (err) {
+      lastError = err;
+      console.error(`[email] Failed with password fallback for ${to}:`, err);
     }
-  } catch (err) {
-    console.error(`[email] Failed to send verification email to ${to}:`, err);
   }
+
+  console.error(`[email] All SMTP attempts failed for ${to}:`, lastError);
+}
+
+export async function sendVerificationEmail(to: string, token: string): Promise<void> {
+  const url = `${FRONTEND_URL}/verify-email?token=${token}`;
+  await sendMail(
+    to,
+    "Verifica tu cuenta de GitHub Trends",
+    `<p>Haz clic en el siguiente enlace para verificar tu cuenta:</p><p><a href="${url}">${url}</a></p>`,
+  );
 }
 
 export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {
   const url = `${FRONTEND_URL}/reset-password?token=${token}`;
-
-  if (!resend) {
-    console.log(`[email] No RESEND_API_KEY. Password reset link for ${to}: ${url}`);
-    return;
-  }
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: FROM,
-      to,
-      subject: "Restablece tu contraseña",
-      html: `<p>Haz clic en el siguiente enlace para restablecer tu contraseña:</p><p><a href="${url}">${url}</a></p><p>Si no solicitaste esto, ignora este correo.</p>`,
-    });
-
-    if (error) {
-      console.error(`[email] Resend error sending to ${to}:`, error);
-    } else {
-      console.log(`[email] Password reset email sent to ${to}. Id:`, data?.id);
-    }
-  } catch (err) {
-    console.error(`[email] Failed to send password reset email to ${to}:`, err);
-  }
+  await sendMail(
+    to,
+    "Restablece tu contraseña",
+    `<p>Haz clic en el siguiente enlace para restablecer tu contraseña:</p><p><a href="${url}">${url}</a></p><p>Si no solicitaste esto, ignora este correo.</p>`,
+  );
 }
