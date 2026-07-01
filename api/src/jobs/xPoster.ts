@@ -27,18 +27,18 @@ function formatPost(report: Awaited<ReturnType<typeof generateReport>>): string 
     `🔥 "${topKeyword.keyword}" is trending on GitHub`,
     `${formatDate()} — ${topKeyword.total_repos} repos (⭐${fmt(topKeyword.avg_stars)} avg, ⭐${fmt(topKeyword.max_stars)} max)`,
     ``,
-    `🥇 ${top.full_name} ⭐${fmt(top.stars)} 🍴${fmt(top.forks)} forks`,
-    `📈 ${topLang.language} ${topLang.percentage}% · 👤 ${topOwner.owner} (${topOwner.repo_count} repos, ⭐${fmt(topOwner.total_stars)} total)`,
+    `🥇 ${top.full_name} ⭐${fmt(top.stars)} 🍴${fmt(top.forks)}`,
+    `📈 ${topLang.language} ${topLang.percentage}% · 👤 ${topOwner.owner} (${topOwner.repo_count} repos, ⭐${fmt(topOwner.total_stars)})`,
     ``,
-    `📊 ${t.total_repos.toLocaleString()} repos · ${t.total_keywords} keywords · ${t.total_owners} unique authors`,
-    `🌐 ${DASHBOARD_URL} — full report`,
+    `📊 ${t.total_repos.toLocaleString()} repos · ${t.total_keywords} keywords · ${t.total_owners} authors`,
+    `🌐 ${DASHBOARD_URL}`,
     `#GitHub #OpenSource`,
   ];
 
   return lines.join("\n");
 }
 
-const SCHEDULE_MORNING = "58 * * * *";
+const SCHEDULE_MORNING = "3 * * * *";
 const SCHEDULE_EVENING = "0 20 * * *";
 
 export function startPoster() {
