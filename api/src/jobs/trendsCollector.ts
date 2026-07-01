@@ -7,7 +7,7 @@ import { redisClient } from "../services/redis";
 const tracer = trace.getTracer("trends-collector");
 
 const GITHUB_TOKEN_CRON = process.env.GITHUB_TOKEN_CRON;
-const SCHEDULE = "0 * * * *";
+const SCHEDULE = "20 * * * *";
 
 interface CollectResult {
   keywordsProcessed: number;
