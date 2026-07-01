@@ -33,7 +33,7 @@ function formatPost(report: Awaited<ReturnType<typeof generateReport>>): string 
   return lines.join("\n");
 }
 
-const SCHEDULE_MORNING = "25 * * * *";
+const SCHEDULE_MORNING = "35 * * * *";
 const SCHEDULE_EVENING = "25 * * * *";
 
 export function startPoster() {
