@@ -33,17 +33,25 @@ function formatPost(report: Awaited<ReturnType<typeof generateReport>>): string 
   return lines.join("\n");
 }
 
-export function startPoster() {
-  console.log("[poster] Scheduler started: 8:00 & 20:00");
+const SCHEDULE_MORNING = "25 * * * *";
+const SCHEDULE_EVENING = "25 * * * *";
 
-  cron.schedule("0 8 * * *", async () => {
+export function startPoster() {
+  if (!cron.validate(SCHEDULE_MORNING) || !cron.validate(SCHEDULE_EVENING)) {
+    console.error(`[poster] Invalid cron schedule: ${SCHEDULE_MORNING} or ${SCHEDULE_EVENING}`);
+    return;
+  }
+
+  console.log(`[poster] Scheduler started: ${SCHEDULE_MORNING} & ${SCHEDULE_EVENING}`);
+
+  cron.schedule(SCHEDULE_MORNING, async () => {
     console.log("[poster] Morning report triggered");
     const report = await generateReport();
     const text = formatPost(report);
     await postToBluesky(text);
   });
 
-  cron.schedule("0 20 * * *", async () => {
+  cron.schedule(SCHEDULE_EVENING, async () => {
     console.log("[poster] Evening report triggered");
     const report = await generateReport();
     const text = formatPost(report);
