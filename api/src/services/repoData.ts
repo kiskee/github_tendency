@@ -484,7 +484,7 @@ async function calculateActivitySummary(repositoryId: number): Promise<RepoActiv
       [repositoryId, thirtyDaysAgo]
     ),
     pool.query<{ count: number }>(
-      `SELECT COUNT(DISTINCT author_login)::int as count FROM repository_commits WHERE repository_id = $1 AND author_date >= $2 AND author_login IS NOT NULL`,
+      `SELECT COUNT(DISTINCT author_name)::int as count FROM repository_commits WHERE repository_id = $1 AND author_date >= $2 AND author_name IS NOT NULL`,
       [repositoryId, thirtyDaysAgo]
     ),
     pool.query<{ count: number }>(
