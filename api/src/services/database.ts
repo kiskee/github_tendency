@@ -513,6 +513,32 @@ export async function runMigrations(): Promise<void> {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_activity_type ON repository_activity(event_type)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_activity_date ON repository_activity(created_at)`);
 
+    // Scan history table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS repo_scan_history (
+        id SERIAL PRIMARY KEY,
+        repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        scanned_at TIMESTAMP DEFAULT NOW(),
+        duration_ms INT,
+        status VARCHAR(20) DEFAULT 'success',
+        commits_found INT DEFAULT 0,
+        prs_opened INT DEFAULT 0,
+        prs_merged INT DEFAULT 0,
+        prs_closed INT DEFAULT 0,
+        issues_opened INT DEFAULT 0,
+        issues_closed INT DEFAULT 0,
+        branches_count INT DEFAULT 0,
+        releases_found INT DEFAULT 0,
+        stars INT DEFAULT 0,
+        forks INT DEFAULT 0,
+        stars_delta_24h INT DEFAULT 0,
+        score NUMERIC(12,2) DEFAULT 0,
+        error_message TEXT
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_scan_history_repo ON repo_scan_history(repository_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_scan_history_date ON repo_scan_history(scanned_at)`);
+
     // Reset users for dev
     await pool.query("TRUNCATE TABLE users CASCADE");
 

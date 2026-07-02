@@ -13,6 +13,21 @@ import {
 import { fetchAndStoreCommits } from "../services/commits.js";
 import { fetchAndStoreAllRepoData, getRepositoryPRs, getRepositoryIssues, getRepositoryBranches, getRepositoryReleases, getActivitySummary } from "../services/repoData.js";
 import { pool } from "../services/database.js";
+
+// Helper to get scan history
+async function getScanHistory(repositoryId: number, limit: number = 20, offset: number = 0): Promise<{ scans: any[]; total: number }> {
+  const countResult = await pool.query<{ count: number }>(
+    `SELECT COUNT(*)::int as count FROM repo_scan_history WHERE repository_id = $1`,
+    [repositoryId]
+  );
+  const total = countResult.rows[0].count;
+
+  const result = await pool.query(
+    `SELECT * FROM repo_scan_history WHERE repository_id = $1 ORDER BY scanned_at DESC LIMIT $2 OFFSET $3`,
+    [repositoryId, limit, offset]
+  );
+  return { scans: result.rows, total };
+}
 import { z } from "zod";
 
 const router = Router();
@@ -369,6 +384,27 @@ router.post("/repos/:id/refresh-all", requireAuth, async (req: Request, res: Res
   } catch (error) {
     console.error("[me] Failed to refresh all:", error);
     res.status(500).json({ error: "Failed to refresh all data" });
+  }
+});
+
+// GET /me/repos/:id/scan-history
+router.get("/repos/:id/scan-history", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userRepoId = parseInt(req.params.id, 10);
+  if (isNaN(userRepoId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  try {
+    const repositoryId = await verifyRepoOwnership(req.user.userId, userRepoId);
+    if (!repositoryId) { res.status(404).json({ error: "Not found" }); return; }
+
+    const limit = parseInt(req.query.limit as string, 10) || 20;
+    const offset = parseInt(req.query.offset as string, 10) || 0;
+
+    const { scans, total } = await getScanHistory(repositoryId, limit, offset);
+    res.status(200).json({ data: scans, total, limit, offset });
+  } catch (error) {
+    console.error("[me] Failed to get scan history:", error);
+    res.status(500).json({ error: "Failed to get scan history" });
   }
 });
 

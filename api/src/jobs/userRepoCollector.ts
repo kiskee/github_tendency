@@ -45,11 +45,11 @@ async function getUserReposToScan(): Promise<UserRepo[]> {
 async function fetchAndUpdateRepo(
   repo: UserRepo,
   span: any
-): Promise<boolean> {
+): Promise<{ success: boolean; summary: any } | null> {
   try {
     if (!repo.githubTokenEncrypted || !repo.fullName) {
       console.error(`[user-repos] Missing data for repo: userId=${repo.userId}, fullName=${repo.fullName}, hasToken=${!!repo.githubTokenEncrypted}`);
-      return false;
+      return null;
     }
     const token = decryptToken(repo.githubTokenEncrypted);
     
@@ -57,7 +57,7 @@ async function fetchAndUpdateRepo(
     const githubRepo = await getGitHubRepository(repo.fullName, token);
     if (!githubRepo) {
       span.addEvent("repo_fetch_failed", { "repo.fullName": repo.fullName });
-      return false;
+      return null;
     }
 
     // 2. Upsert repository metadata
@@ -112,7 +112,7 @@ async function fetchAndUpdateRepo(
       "repo.branches": summary?.totalBranches || 0,
     });
 
-    return true;
+    return { success: true, summary };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     span.addEvent("repo_update_error", {
@@ -120,7 +120,45 @@ async function fetchAndUpdateRepo(
       "error": message,
     });
     console.error(`[user-repos] Error updating ${repo.fullName}:`, error);
-    return false;
+    return { success: false, summary: null };
+  }
+}
+
+async function saveScanHistory(
+  repositoryId: number,
+  durationMs: number,
+  status: string,
+  summary: any,
+  githubRepo: any,
+  errorMessage?: string
+): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO repo_scan_history 
+       (repository_id, duration_ms, status, commits_found, prs_opened, prs_merged, prs_closed, 
+        issues_opened, issues_closed, branches_count, releases_found, stars, forks, stars_delta_24h, score, error_message)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+      [
+        repositoryId,
+        durationMs,
+        status,
+        summary?.commits7d || 0,
+        summary?.prsOpened7d || 0,
+        summary?.prsMerged7d || 0,
+        summary?.prsClosed7d || 0,
+        summary?.issuesOpened7d || 0,
+        summary?.issuesClosed7d || 0,
+        summary?.totalBranches || 0,
+        summary?.releases30d || 0,
+        githubRepo?.stars || 0,
+        githubRepo?.forks || 0,
+        githubRepo?.stars24h || 0,
+        githubRepo?.score || 0,
+        errorMessage || null,
+      ]
+    );
+  } catch (error) {
+    console.error(`[user-repos] Failed to save scan history:`, error);
   }
 }
 
@@ -155,8 +193,36 @@ export async function collectUserRepos(): Promise<CollectResult> {
       for (const [userId, repos] of userRepoMap) {
         try {
           for (const repo of repos) {
-            const success = await fetchAndUpdateRepo(repo, span);
-            if (success) reposUpdated++;
+            const startTime = Date.now();
+            const result = await fetchAndUpdateRepo(repo, span);
+            const duration = Date.now() - startTime;
+            
+            if (result) {
+              reposUpdated++;
+              
+              // Get github repo data for history
+              const githubRepo = await getGitHubRepository(repo.fullName, decryptToken(repo.githubTokenEncrypted)).catch(() => null);
+              await saveScanHistory(
+                repo.repositoryId,
+                duration,
+                'success',
+                result.summary,
+                githubRepo
+              );
+            } else {
+              // Save failed scan
+              const [owner, name] = repo.fullName.split('/') || [];
+              if (owner && name) {
+                await saveScanHistory(
+                  repo.repositoryId,
+                  Date.now() - startTime,
+                  'error',
+                  null,
+                  null,
+                  'Failed to fetch data'
+                );
+              }
+            }
           }
           usersProcessed++;
           
