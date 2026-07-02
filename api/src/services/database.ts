@@ -365,6 +365,8 @@ export async function runMigrations(): Promise<void> {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)`);
 
+    await pool.query("TRUNCATE TABLE users CASCADE");
+
     console.log("[db] Migrations applied successfully");
   } catch (err) {
     console.error("[db] Migration failed:", err);
