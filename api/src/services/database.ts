@@ -343,6 +343,10 @@ export async function runMigrations(): Promise<void> {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS company VARCHAR(255)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(100)`);
     await pool.query(`UPDATE users SET name = 'Unknown' WHERE name IS NULL`);
     await pool.query(`ALTER TABLE users ALTER COLUMN name SET NOT NULL`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
