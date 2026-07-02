@@ -47,6 +47,10 @@ async function fetchAndUpdateRepo(
   span: any
 ): Promise<boolean> {
   try {
+    if (!repo.githubTokenEncrypted || !repo.fullName) {
+      console.error(`[user-repos] Missing data for repo: userId=${repo.userId}, fullName=${repo.fullName}, hasToken=${!!repo.githubTokenEncrypted}`);
+      return false;
+    }
     const token = decryptToken(repo.githubTokenEncrypted);
     
     // 1. Fetch basic repo data
