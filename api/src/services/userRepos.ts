@@ -24,6 +24,7 @@ export interface UserRepository {
     stars7d: number;
     score: number;
     lastPush: string;
+    collectedAt: string;
     openIssues: number;
     watchers: number;
     license: string | null;
@@ -139,7 +140,7 @@ export async function getUserRepositories(userId: number): Promise<UserRepositor
             r.id as repo_id, r.github_id, r.name, r.full_name as repo_full_name, r.owner,
             r.description, r.url, r.stars, r.forks, r.language, r.stars_24h, r.stars_7d,
             r.score, r.pushed_at, r.open_issues, r.watchers, r.license, r.latest_release,
-            r.topics, r.homepage_url, r.is_archived, r.disk_usage
+            r.topics, r.homepage_url, r.is_archived, r.disk_usage, r.collected_at
      FROM user_repositories ur
      JOIN repositories r ON r.id = ur.repository_id
      WHERE ur.user_id = $1 AND ur.is_active = true
@@ -155,7 +156,7 @@ export async function getUserRepositoryById(userId: number, userRepoId: number):
             r.id as repo_id, r.github_id, r.name, r.full_name as repo_full_name, r.owner,
             r.description, r.url, r.stars, r.forks, r.language, r.stars_24h, r.stars_7d,
             r.score, r.pushed_at, r.open_issues, r.watchers, r.license, r.latest_release,
-            r.topics, r.homepage_url, r.is_archived, r.disk_usage
+            r.topics, r.homepage_url, r.is_archived, r.disk_usage, r.collected_at
      FROM user_repositories ur
      JOIN repositories r ON r.id = ur.repository_id
      WHERE ur.id = $1 AND ur.user_id = $2`,
@@ -219,6 +220,7 @@ function mapUserRepositoryRow(row: any): UserRepository {
       stars7d: row.stars_7d,
       score: row.score,
       lastPush: row.pushed_at,
+      collectedAt: row.collected_at,
       openIssues: row.open_issues,
       watchers: row.watchers,
       license: row.license,

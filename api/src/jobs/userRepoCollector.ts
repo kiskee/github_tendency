@@ -4,6 +4,7 @@ import { getGitHubRepository, type GitHubRepo } from "../services/github.js";
 import { pool } from "../services/database.js";
 import { decryptToken } from "../utils/tokenCrypto.js";
 import { saveSnapshot, updateRepoScores } from "../services/repoScoring.js";
+import { fetchAndStoreCommits } from "../services/commits.js";
 
 const tracer = trace.getTracer("user-repo-collector");
 const SCHEDULE = "0 * * * *"; // Every hour
@@ -89,6 +90,10 @@ async function fetchAndUpdateRepo(
     // Save snapshot and update scores
     await saveSnapshot(repoId, githubRepo);
     await updateRepoScores(repoId, githubRepo);
+
+    // Fetch and store recent commits
+    const [owner, name] = repo.fullName.split('/');
+    await fetchAndStoreCommits(repoId, owner, name, token, 10);
 
     span.addEvent("repo_updated", {
       "repo.fullName": repo.fullName,
