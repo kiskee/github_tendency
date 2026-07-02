@@ -83,6 +83,22 @@ export async function addUserRepository(userId: number, fullName: string): Promi
     throw new Error("GitHub token not configured. Add it in settings first.");
   }
 
+  const userRes = await pool.query<{ role: string }>(
+    `SELECT role FROM users WHERE id = $1`,
+    [userId],
+  );
+  const role = userRes.rows[0]?.role || "user";
+
+  if (role !== "admin") {
+    const countRes = await pool.query<{ count: number }>(
+      `SELECT COUNT(*)::int as count FROM user_repositories WHERE user_id = $1 AND is_active = true`,
+      [userId],
+    );
+    if (countRes.rows[0].count >= 1) {
+      throw new Error("Free users can only track 1 repository. Upgrade to add more.");
+    }
+  }
+
   const repo = await getGitHubRepository(fullName, token);
   if (!repo) {
     throw new Error("Repository not found or GitHub API error");
