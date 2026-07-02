@@ -286,6 +286,7 @@ Ver `.env`:
 | `GOOGLE_PS`                      | —         | App Password de Gmail                |
 | `GOOGLE_PS2`                     | —         | App Password secundaria (fallback)   |
 | `EMAIL_FROM`                     | —         | Remitente de emails                  |
+| `TOKEN_ENCRYPTION_KEY`           | ✅        | Clave AES-256-GCM para tokens GitHub (64 hex) |
 
 ---
 

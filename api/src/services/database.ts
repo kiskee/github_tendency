@@ -347,8 +347,23 @@ export async function runMigrations(): Promise<void> {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS company VARCHAR(255)`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(100)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS github_token_encrypted TEXT`);
     await pool.query(`UPDATE users SET name = 'Unknown' WHERE name IS NULL`);
     await pool.query(`ALTER TABLE users ALTER COLUMN name SET NOT NULL`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_repositories (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        full_name VARCHAR(512) NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        added_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, repository_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_repositories_user ON user_repositories(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_repositories_repo ON user_repositories(repository_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_verification ON users(verification_token)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_reset ON users(password_reset_token)`);

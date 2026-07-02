@@ -75,6 +75,94 @@ const SEARCH_REPOSITORIES_QUERY = `
   }
 `;
 
+const GET_REPOSITORY_QUERY = `
+  query GetRepository($owner: String!, $name: String!) {
+    rateLimit {
+      cost
+      remaining
+      resetAt
+    }
+    repository(owner: $owner, name: $name) {
+      databaseId
+      id
+      name
+      owner {
+        login
+      }
+      description
+      url
+      stargazerCount
+      forkCount
+      primaryLanguage {
+        name
+      }
+      createdAt
+      pushedAt
+      watchers {
+        totalCount
+      }
+      issues(states: OPEN) {
+        totalCount
+      }
+      licenseInfo {
+        key
+        spdxId
+      }
+      languages(first: 5) {
+        totalCount
+        edges {
+          size
+          node {
+            name
+          }
+        }
+      }
+      latestRelease {
+        tagName
+        publishedAt
+      }
+      repositoryTopics(first: 10) {
+        nodes {
+          topic {
+            name
+          }
+        }
+      }
+      homepageUrl
+      isArchived
+      diskUsage
+    }
+  }
+`;
+
+function mapRepoNode(node: any): GitHubRepo {
+  return {
+    githubId: node.databaseId,
+    name: node.name,
+    fullName: `${node.owner.login}/${node.name}`,
+    owner: node.owner.login,
+    url: node.url,
+    stars: node.stargazerCount,
+    forks: node.forkCount,
+    watchers: node.watchers?.totalCount || 0,
+    openIssues: node.issues?.totalCount || 0,
+    license: node.licenseInfo?.spdxId || node.licenseInfo?.key || null,
+    language: node.primaryLanguage?.name || "Unknown",
+    languages: (node.languages?.edges || []).map((e: any) => ({
+      name: e.node.name,
+      size: e.size,
+    })),
+    latestRelease: node.latestRelease?.tagName || null,
+    topics: (node.repositoryTopics?.nodes || []).map((n: any) => n.topic?.name).filter(Boolean),
+    homepageUrl: node.homepageUrl || null,
+    isArchived: node.isArchived || false,
+    diskUsage: node.diskUsage || 0,
+    description: node.description,
+    createdAt: node.createdAt,
+    lastPush: node.pushedAt,
+  };
+}
+
 export interface GitHubRepo {
   githubId: number;
   name: string;
@@ -166,31 +254,7 @@ export async function searchGitHubRepos(keyword: string, token?: string, first =
           remaining: rateLimit.remaining,
           resetAt: rateLimit.resetAt,
         },
-        repositories: data.edges.map((edge: any) => ({
-          githubId: edge.node.databaseId,
-          name: edge.node.name,
-          fullName: `${edge.node.owner.login}/${edge.node.name}`,
-          owner: edge.node.owner.login,
-          url: edge.node.url,
-          stars: edge.node.stargazerCount,
-          forks: edge.node.forkCount,
-          watchers: edge.node.watchers?.totalCount || 0,
-          openIssues: edge.node.issues?.totalCount || 0,
-          license: edge.node.licenseInfo?.spdxId || edge.node.licenseInfo?.key || null,
-          language: edge.node.primaryLanguage?.name || "Unknown",
-          languages: (edge.node.languages?.edges || []).map((e: any) => ({
-            name: e.node.name,
-            size: e.size,
-          })),
-          latestRelease: edge.node.latestRelease?.tagName || null,
-          topics: (edge.node.repositoryTopics?.nodes || []).map((n: any) => n.topic?.name).filter(Boolean),
-          homepageUrl: edge.node.homepageUrl || null,
-          isArchived: edge.node.isArchived || false,
-          diskUsage: edge.node.diskUsage || 0,
-          description: edge.node.description,
-          createdAt: edge.node.createdAt,
-          lastPush: edge.node.pushedAt,
-        })),
+        repositories: data.edges.map((edge: any) => mapRepoNode(edge.node)),
       };
 
       await redisClient.setEx(cacheKey, 60, JSON.stringify(responseFinal));
@@ -200,6 +264,71 @@ export async function searchGitHubRepos(keyword: string, token?: string, first =
       span.setStatus({ code: SpanStatusCode.ERROR, message });
       span.recordException(error instanceof Error ? error : new Error(message));
       searchRequestsTotal.add(1, { keyword, status: "error" });
+      return null;
+    } finally {
+      span.end();
+    }
+  });
+}
+
+export async function getGitHubRepository(
+  fullName: string,
+  token: string,
+): Promise<GitHubRepo | null> {
+  const parts = fullName.split("/");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new Error("Invalid full_name format. Use owner/repo");
+  }
+  const [owner, name] = parts;
+
+  return tracer.startActiveSpan("github.graphql.repository", async (span) => {
+    try {
+      span.setAttribute("github.repository.full_name", fullName);
+
+      if (!token) {
+        throw new Error("GitHub token required");
+      }
+
+      const response = await axios.post(
+        GITHUB_GRAPHQL_URL,
+        {
+          query: GET_REPOSITORY_QUERY,
+          variables: { owner, name },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        },
+      );
+
+      if (response.data.errors) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: "GraphQL errors" });
+        span.setAttribute("github.repository.error", JSON.stringify(response.data.errors));
+        searchRequestsTotal.add(1, { keyword: fullName, status: "error" });
+        return null;
+      }
+
+      const repo = response.data.data.repository;
+      if (!repo) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: "Repository not found" });
+        return null;
+      }
+
+      const rateLimit = response.data.data.rateLimit;
+      span.setAttribute("graphql.cost", rateLimit.cost);
+      span.setAttribute("graphql.remaining", rateLimit.remaining);
+      span.setStatus({ code: SpanStatusCode.OK });
+      searchRequestsTotal.add(1, { keyword: fullName, status: "success" });
+
+      return mapRepoNode(repo);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      span.setStatus({ code: SpanStatusCode.ERROR, message });
+      span.recordException(error instanceof Error ? error : new Error(message));
+      searchRequestsTotal.add(1, { keyword: fullName, status: "error" });
       return null;
     } finally {
       span.end();
