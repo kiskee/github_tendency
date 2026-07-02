@@ -5,6 +5,7 @@ import { pool } from "../services/database.js";
 import { decryptToken } from "../utils/tokenCrypto.js";
 import { saveSnapshot, updateRepoScores } from "../services/repoScoring.js";
 import { fetchAndStoreCommits } from "../services/commits.js";
+import { fetchAndStoreAllRepoData, type RepoActivitySummary } from "../services/repoData.js";
 
 const tracer = trace.getTracer("user-repo-collector");
 const SCHEDULE = "0 * * * *"; // Every hour
@@ -47,14 +48,15 @@ async function fetchAndUpdateRepo(
 ): Promise<boolean> {
   try {
     const token = decryptToken(repo.githubTokenEncrypted);
-    const githubRepo = await getGitHubRepository(repo.fullName, token);
     
+    // 1. Fetch basic repo data
+    const githubRepo = await getGitHubRepository(repo.fullName, token);
     if (!githubRepo) {
       span.addEvent("repo_fetch_failed", { "repo.fullName": repo.fullName });
       return false;
     }
 
-    // Upsert repository
+    // 2. Upsert repository metadata
     const repoRes = await pool.query(
       `INSERT INTO repositories (github_id, name, full_name, description, url, owner, stars, forks, watchers, open_issues, license, latest_release, languages, topics, homepage_url, is_archived, disk_usage, language, created_at, pushed_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
@@ -87,17 +89,23 @@ async function fetchAndUpdateRepo(
 
     const repoId = repoRes.rows[0].id;
 
-    // Save snapshot and update scores
+    // 3. Save snapshot and update scores
     await saveSnapshot(repoId, githubRepo);
     await updateRepoScores(repoId, githubRepo);
 
-    // Fetch and store recent commits
+    // 4. Fetch commits
     const [owner, name] = repo.fullName.split('/');
     await fetchAndStoreCommits(repoId, owner, name, token, 10);
+
+    // 5. Fetch comprehensive repo data (PRs, Issues, Branches, Releases)
+    const summary = await fetchAndStoreAllRepoData(repoId, owner, name, token);
 
     span.addEvent("repo_updated", {
       "repo.fullName": repo.fullName,
       "repo.stars": githubRepo.stars,
+      "repo.prs": summary?.totalOpenPrs || 0,
+      "repo.issues": summary?.totalOpenIssues || 0,
+      "repo.branches": summary?.totalBranches || 0,
     });
 
     return true;
@@ -107,6 +115,7 @@ async function fetchAndUpdateRepo(
       "repo.fullName": repo.fullName,
       "error": message,
     });
+    console.error(`[user-repos] Error updating ${repo.fullName}:`, error);
     return false;
   }
 }
@@ -141,14 +150,13 @@ export async function collectUserRepos(): Promise<CollectResult> {
 
       for (const [userId, repos] of userRepoMap) {
         try {
-          // Process repos sequentially for this user
           for (const repo of repos) {
             const success = await fetchAndUpdateRepo(repo, span);
             if (success) reposUpdated++;
           }
           usersProcessed++;
           
-          // Small delay between users to be nice to GitHub API
+          // Delay between users
           if (userRepoMap.size > 1) {
             await new Promise(resolve => setTimeout(resolve, 100));
           }

@@ -398,8 +398,123 @@ export async function runMigrations(): Promise<void> {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_repository_commits_repo ON repository_commits(repository_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_repository_commits_date ON repository_commits(author_date)`);
 
-    // We'll keep the TRUNCATE for development, but comment it out for production
-    // await pool.query("TRUNCATE TABLE users CASCADE");
+    // Pull Requests table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS repository_pull_requests (
+        id SERIAL PRIMARY KEY,
+        repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        github_pr_id BIGINT UNIQUE,
+        number INT,
+        title TEXT,
+        state VARCHAR(20),
+        author_login VARCHAR(255),
+        author_avatar VARCHAR(512),
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP,
+        closed_at TIMESTAMP,
+        merged_at TIMESTAMP,
+        mergeable VARCHAR(20),
+        additions INT DEFAULT 0,
+        deletions INT DEFAULT 0,
+        changed_files INT DEFAULT 0,
+        reviewers JSONB DEFAULT '[]'::jsonb,
+        labels JSONB DEFAULT '[]'::jsonb,
+        head_branch VARCHAR(255),
+        base_branch VARCHAR(255),
+        url VARCHAR(512),
+        collected_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_pr_repo ON repository_pull_requests(repository_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_pr_state ON repository_pull_requests(state)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_pr_created ON repository_pull_requests(created_at)`);
+
+    // Issues table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS repository_issues (
+        id SERIAL PRIMARY KEY,
+        repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        github_issue_id BIGINT UNIQUE,
+        number INT,
+        title TEXT,
+        state VARCHAR(20),
+        author_login VARCHAR(255),
+        author_avatar VARCHAR(512),
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP,
+        closed_at TIMESTAMP,
+        labels JSONB DEFAULT '[]'::jsonb,
+        assignees JSONB DEFAULT '[]'::jsonb,
+        milestone VARCHAR(255),
+        comments_count INT DEFAULT 0,
+        url VARCHAR(512),
+        collected_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_issue_repo ON repository_issues(repository_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_issue_state ON repository_issues(state)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_issue_created ON repository_issues(created_at)`);
+
+    // Branches table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS repository_branches (
+        id SERIAL PRIMARY KEY,
+        repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        is_default BOOLEAN DEFAULT false,
+        is_protected BOOLEAN DEFAULT false,
+        last_commit_sha VARCHAR(40),
+        last_commit_message TEXT,
+        last_commit_author VARCHAR(255),
+        last_commit_date TIMESTAMP,
+        has_open_pr BOOLEAN DEFAULT false,
+        collected_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(repository_id, name)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_branch_repo ON repository_branches(repository_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_branch_default ON repository_branches(is_default)`);
+
+    // Releases table (full history)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS repository_releases (
+        id SERIAL PRIMARY KEY,
+        repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        github_release_id BIGINT UNIQUE,
+        tag_name VARCHAR(255),
+        name VARCHAR(512),
+        body TEXT,
+        author_login VARCHAR(255),
+        created_at TIMESTAMP,
+        published_at TIMESTAMP,
+        is_prerelease BOOLEAN DEFAULT false,
+        is_draft BOOLEAN DEFAULT false,
+        url VARCHAR(512),
+        collected_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_release_repo ON repository_releases(repository_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_release_published ON repository_releases(published_at)`);
+
+    // Activity log (consolidated events)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS repository_activity (
+        id SERIAL PRIMARY KEY,
+        repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        event_type VARCHAR(50),
+        actor_login VARCHAR(255),
+        actor_avatar VARCHAR(512),
+        event_data JSONB,
+        created_at TIMESTAMP,
+        collected_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_activity_repo ON repository_activity(repository_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_activity_type ON repository_activity(event_type)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_activity_date ON repository_activity(created_at)`);
+
+    // Reset users for dev
+    await pool.query("TRUNCATE TABLE users CASCADE");
 
     console.log("[db] Migrations applied successfully");
   } catch (err) {
