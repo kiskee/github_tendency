@@ -8,7 +8,7 @@ import { fetchAndStoreCommits } from "../services/commits.js";
 import { fetchAndStoreAllRepoData, type RepoActivitySummary } from "../services/repoData.js";
 
 const tracer = trace.getTracer("user-repo-collector");
-const SCHEDULE = "0 * * * *"; // Every hour
+const SCHEDULE = "10 * * * *"; // Every hour
 
 interface UserRepo {
   userId: number;
@@ -28,11 +28,11 @@ interface CollectResult {
 async function getUserReposToScan(): Promise<UserRepo[]> {
   const result = await pool.query(
     `SELECT 
-       ur.user_id,
-       ur.id as user_repo_id,
-       ur.repository_id,
-       ur.full_name,
-       u.github_token_encrypted
+       ur.user_id as "userId",
+       ur.id as "userRepoId",
+       ur.repository_id as "repositoryId",
+       ur.full_name as "fullName",
+       u.github_token_encrypted as "githubTokenEncrypted"
      FROM user_repositories ur
      JOIN users u ON u.id = ur.user_id
      WHERE ur.is_active = true 
