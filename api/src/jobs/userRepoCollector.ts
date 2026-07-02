@@ -8,7 +8,7 @@ import { fetchAndStoreCommits } from "../services/commits.js";
 import { fetchAndStoreAllRepoData, type RepoActivitySummary } from "../services/repoData.js";
 
 const tracer = trace.getTracer("user-repo-collector");
-const SCHEDULE = "20 * * * *"; // Every hour
+const SCHEDULE = "40 * * * *"; // Every hour
 
 interface UserRepo {
   userId: number;

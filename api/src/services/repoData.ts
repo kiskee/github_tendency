@@ -70,7 +70,6 @@ const GET_REPO_FULL_DATA_QUERY = `
                 oid
                 messageHeadline
                 author { name, date }
-                pushedAt
               }
             }
           }

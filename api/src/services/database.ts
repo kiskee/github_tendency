@@ -543,7 +543,7 @@ export async function runMigrations(): Promise<void> {
     //await pool.query("TRUNCATE TABLE users CASCADE");
 
     // Make veteappi@gmail.com admin
-    await pool.query(`UPDATE users SET role = 'admin' WHERE email = 'veteappi@gmail.com'`);
+    //await pool.query(`UPDATE users SET role = 'admin' WHERE email = 'veteappi@gmail.com'`);
 
     console.log("[db] Migrations applied successfully");
   } catch (err) {
