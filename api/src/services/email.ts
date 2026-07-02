@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { FRONTEND_URL } from "../config/auth.js";
+import { EMAIL_FRONTEND_URL } from "../config/auth.js";
 
 const GOOGLE_HOST = process.env.GOOGLE_HOST || "smtp.gmail.com";
 const GOOGLE_PORT = parseInt(process.env.GOOGLE_PORT || "587", 10);
@@ -54,7 +54,7 @@ async function sendMail(
 }
 
 export async function sendVerificationEmail(to: string, token: string): Promise<void> {
-  const url = `${FRONTEND_URL}/verify-email?token=${token}`;
+  const url = `${EMAIL_FRONTEND_URL}/verify-email?token=${token}`;
   await sendMail(
     to,
     "Verifica tu cuenta de GitHub Trends",
@@ -63,7 +63,7 @@ export async function sendVerificationEmail(to: string, token: string): Promise<
 }
 
 export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {
-  const url = `${FRONTEND_URL}/reset-password?token=${token}`;
+  const url = `${EMAIL_FRONTEND_URL}/reset-password?token=${token}`;
   await sendMail(
     to,
     "Restablece tu contraseña",

@@ -44,8 +44,8 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const { email, password } = parse.data;
-  const result = await registerUser(email, password);
+  const { email, password, name, phone, company, country } = parse.data;
+  const result = await registerUser(email, password, name, phone, company, country);
 
   if (!result.success) {
     res.status(409).json({ error: result.error });

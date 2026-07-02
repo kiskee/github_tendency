@@ -330,6 +330,10 @@ export async function runMigrations(): Promise<void> {
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
+        name VARCHAR(255),
+        phone VARCHAR(50),
+        company VARCHAR(255),
+        country VARCHAR(100),
         role VARCHAR(50) NOT NULL DEFAULT 'user',
         email_verified BOOLEAN DEFAULT false,
         verification_token VARCHAR(255),
@@ -339,6 +343,8 @@ export async function runMigrations(): Promise<void> {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    await pool.query(`UPDATE users SET name = 'Unknown' WHERE name IS NULL`);
+    await pool.query(`ALTER TABLE users ALTER COLUMN name SET NOT NULL`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_verification ON users(verification_token)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_reset ON users(password_reset_token)`);

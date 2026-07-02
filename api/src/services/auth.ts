@@ -20,6 +20,10 @@ import {
 export interface User {
   id: number;
   email: string;
+  name: string;
+  phone: string | null;
+  company: string | null;
+  country: string | null;
   role: string;
   email_verified: boolean;
   created_at: Date;
@@ -82,9 +86,13 @@ async function storeRefreshToken(
 export async function registerUser(
   email: string,
   password: string,
+  name: string,
+  phone?: string,
+  company?: string,
+  country?: string,
 ): Promise<AuthResult> {
   const existing = await pool.query<User>(
-    `SELECT id, email, role, email_verified, created_at FROM users WHERE email = $1`,
+    `SELECT id, email, name, phone, company, country, role, email_verified, created_at FROM users WHERE email = $1`,
     [email],
   );
   if (existing.rowCount && existing.rowCount > 0) {
@@ -95,10 +103,10 @@ export async function registerUser(
   const verificationToken = randomToken();
 
   const result = await pool.query<User>(
-    `INSERT INTO users (email, password_hash, verification_token)
-     VALUES ($1, $2, $3)
-     RETURNING id, email, role, email_verified, created_at`,
-    [email, passwordHash, verificationToken],
+    `INSERT INTO users (email, password_hash, name, phone, company, country, verification_token)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, email, name, phone, company, country, role, email_verified, created_at`,
+    [email, passwordHash, name, phone || null, company || null, country || null, verificationToken],
   );
 
   const user = result.rows[0];
@@ -128,7 +136,7 @@ export async function loginUser(
   password: string,
 ): Promise<AuthResult> {
   const result = await pool.query<User>(
-    `SELECT id, email, role, email_verified, created_at, password_hash FROM users WHERE email = $1`,
+    `SELECT id, email, name, phone, company, country, role, email_verified, created_at, password_hash FROM users WHERE email = $1`,
     [email],
   );
 
@@ -254,7 +262,7 @@ export async function resetPassword(
     `UPDATE users
      SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL
      WHERE id = $2
-     RETURNING id, email, role, email_verified, created_at`,
+     RETURNING id, email, name, phone, company, country, role, email_verified, created_at`,
     [passwordHash, result.rows[0].id],
   );
 
@@ -268,7 +276,7 @@ export async function resetPassword(
 
 export async function getUserById(id: number): Promise<User | null> {
   const result = await pool.query<User>(
-    `SELECT id, email, role, email_verified, created_at FROM users WHERE id = $1`,
+    `SELECT id, email, name, phone, company, country, role, email_verified, created_at FROM users WHERE id = $1`,
     [id],
   );
   return result.rows[0] || null;

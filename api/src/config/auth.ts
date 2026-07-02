@@ -4,6 +4,7 @@ export const JWT_ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || "15m";
 export const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
 export const COOKIE_SECURE = process.env.COOKIE_SECURE === "true";
 export const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+export const EMAIL_FRONTEND_URL = process.env.EMAIL_FRONTEND_URL || FRONTEND_URL;
 
 if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET) {
   console.error("Error: JWT_ACCESS_SECRET y JWT_REFRESH_SECRET son requeridos");

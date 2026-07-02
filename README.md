@@ -278,7 +278,8 @@ Ver `.env`:
 | `JWT_ACCESS_EXPIRES_IN`          | —         | TTL access token (default 15m)       |
 | `JWT_REFRESH_EXPIRES_IN`         | —         | TTL refresh token (default 7d)       |
 | `COOKIE_SECURE`                  | —         | Secure flag cookies (default false)  |
-| `FRONTEND_URL`                   | —         | URL frontend para links de email     |
+| `FRONTEND_URL`                   | —         | URL frontend para CORS/dev           |
+| `EMAIL_FRONTEND_URL`             | —         | URL frontend para links de email     |
 | `GOOGLE_HOST`                    | —         | Servidor SMTP Gmail                  |
 | `GOOGLE_PORT`                    | —         | Puerto SMTP (default 587)            |
 | `GOOGLE_LONNSOM`                 | —         | Email de Gmail                       |
