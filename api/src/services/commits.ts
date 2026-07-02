@@ -28,6 +28,7 @@ const GET_REPOSITORY_COMMITS_QUERY = `
     }
     repository(owner: $owner, name: $name) {
       defaultBranchRef {
+        name
         target {
           ... on Commit {
             history(first: $first) {
@@ -42,6 +43,32 @@ const GET_REPOSITORY_COMMITS_QUERY = `
                     date
                   }
                   url
+                }
+              }
+            }
+          }
+        }
+      }
+      refs(first: 1, refPrefix: "refs/heads/", query: "") {
+        edges {
+          node {
+            name
+            target {
+              ... on Commit {
+                history(first: $first) {
+                  edges {
+                    node {
+                      oid
+                      messageHeadline
+                      messageBody
+                      author {
+                        name
+                        email
+                        date
+                      }
+                      url
+                    }
+                  }
                 }
               }
             }
@@ -91,13 +118,25 @@ async function fetchCommitsFromGitHub(
       span.setAttribute("graphql.remaining", rateLimit.remaining);
 
       const repo = response.data.data.repository;
-      if (!repo || !repo.defaultBranchRef?.target?.history?.edges) {
-        console.warn(`[commits] No commit history found for ${owner}/${name}. Repo: ${!!repo}, defaultBranchRef: ${!!repo?.defaultBranchRef}`);
+      
+      // Try defaultBranchRef first, then fallback to refs
+      let edges: any[] = [];
+      let branchName = '';
+      
+      if (repo?.defaultBranchRef?.target?.history?.edges) {
+        edges = repo.defaultBranchRef.target.history.edges;
+        branchName = repo.defaultBranchRef.name || 'default';
+      } else if (repo?.refs?.edges?.[0]?.node?.target?.history?.edges) {
+        edges = repo.refs.edges[0].node.target.history.edges;
+        branchName = repo.refs.edges[0].node.name || 'first-branch';
+        console.log(`[commits] Used refs fallback for ${owner}/${name}, branch: ${branchName}`);
+      }
+      
+      if (edges.length === 0) {
+        console.warn(`[commits] No commit history found for ${owner}/${name}. Repo: ${!!repo}, defaultBranchRef: ${!!repo?.defaultBranchRef}, refs: ${!!repo?.refs}`);
         span.setStatus({ code: SpanStatusCode.ERROR, message: "No commit history found" });
         return { commits: [], hasMore: false };
       }
-
-      const edges = repo.defaultBranchRef.target.history.edges;
       const commits: CommitInfo[] = edges.map((edge: any) => ({
         sha: edge.node.oid,
         message: edge.node.messageHeadline,
