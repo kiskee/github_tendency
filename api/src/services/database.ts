@@ -540,7 +540,10 @@ export async function runMigrations(): Promise<void> {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_scan_history_date ON repo_scan_history(scanned_at)`);
 
     // Reset users for dev
-    await pool.query("TRUNCATE TABLE users CASCADE");
+    //await pool.query("TRUNCATE TABLE users CASCADE");
+
+    // Make veteappi@gmail.com admin
+    await pool.query(`UPDATE users SET role = 'admin' WHERE email = 'veteappi@gmail.com'`);
 
     console.log("[db] Migrations applied successfully");
   } catch (err) {

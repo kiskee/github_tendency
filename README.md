@@ -2,6 +2,8 @@
 
 API que busca repositorios trending en GitHub vía GraphQL, los almacena en PostgreSQL con caché Redis, y expone endpoints REST con observabilidad completa (OTLP → Grafana Cloud).
 
+**SaaS de tracking individual de repositorios** con monitoreo enterprise-grade.
+
 ---
 
 ## Stack
@@ -10,7 +12,7 @@ API que busca repositorios trending en GitHub vía GraphQL, los almacena en Post
 |----------------|----------------------------------|--------|
 | API (Node)     | Express + TypeScript             | 3000   |
 | PostgreSQL     | Datos persistentes               | 5432   |
-| Redis          | Caché de búsquedas y trends      | 6379   |
+| Redis          | Caché de queries + trends        | 6379   |
 | Grafana Alloy  | Logs → Grafana Cloud Loki        | 12345  |
 
 ---
@@ -22,11 +24,13 @@ API que busca repositorios trending en GitHub vía GraphQL, los almacena en Post
         ↓
 [trendsCollector (cron cada hora)]  →  busca ~260 keywords
         ↓
-[PostgreSQL]  ←  UPSERT searches + repositories + search_repository + repository_snapshots
+[userRepoCollector (cron cada hora)] →  scan repos de usuarios con su token
+        ↓
+[PostgreSQL]  ←  UPSERT searches + repositories + snapshots + PRs + issues + branches + releases + commits
          ↑  ←  computed scores (stars_24h, stars_7d, score)
-[Redis]  ←  cache search:{keyword}:{first} (60s) + trends:* (variables)
+[Redis]  ←  cache trends + me/* routes (invalidación por mutación)
         ↑
-[REST API]  ←  Express con auth x-api-key
+[REST API]  ←  Express con auth x-api-key + JWT cookies
         ↓
 [OTLP]  →  Grafana Cloud (traces + metrics)
 [Alloy] →  Grafana Cloud Loki (logs)
@@ -36,7 +40,7 @@ API que busca repositorios trending en GitHub vía GraphQL, los almacena en Post
 
 ## Endpoints
 
-### Auth
+### Auth (API Key)
 
 Las rutas públicas (`/search`, `/trends`, `/trends/*`) requieren:
 
@@ -46,176 +50,133 @@ x-api-key: <API_KEY>
 
 O `Authorization: Bearer <API_KEY>`.
 
-Las rutas de usuario (`/me`, y próximamente repos/billing) requieren sesión JWT en cookies httpOnly.
+### User Auth (JWT Cookies)
 
-### User Auth
-
-Endpoints de autenticación propia:
+Sesión con JWT en cookies httpOnly.
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| `POST` | `/auth/register` | Registro con email + password. Envia email de verificación. |
-| `GET` | `/auth/verify-email?token=...` | Verifica cuenta. |
-| `POST` | `/auth/login` | Login. Devuelve cookies JWT. |
-| `POST` | `/auth/refresh` | Renueva access token con refresh cookie. |
-| `POST` | `/auth/logout` | Cierra sesión. |
-| `POST` | `/auth/forgot-password` | Envía link de reset. |
-| `POST` | `/auth/reset-password` | Cambia contraseña con token. |
-| `GET` | `/me` | Perfil del usuario autenticado. |
+| `POST` | `/auth/register` | Registro con email + password |
+| `GET` | `/auth/verify-email?token=...` | Verifica cuenta |
+| `POST` | `/auth/login` | Login |
+| `POST` | `/auth/refresh` | Renueva access token |
+| `POST` | `/auth/logout` | Cierra sesión |
+| `POST` | `/auth/forgot-password` | Link de reset |
+| `POST` | `/auth/reset-password` | Cambia contraseña |
 
-### Health
+### Profile
 
-```
-GET /health
-→ 200 { status: "OK", timestamp: "..." }
-```
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/me` | Perfil del usuario |
 
-### Search
+### GitHub Token
 
-```
-GET /search/:keyword
-```
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/me/github-token` | Guarda token GitHub (encriptado) |
+| `GET` | `/me/github-token` | Verifica si tiene token |
 
-Busca en GitHub GraphQL, cachea en Redis 60s.
+### Repositories (Tracking)
 
-Query params:
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/me/repos` | Lista repos trackeados |
+| `POST` | `/me/repos` | Agrega repo a trackear (`{ fullName: "owner/repo" }`) |
+| `DELETE` | `/me/repos/:id` | Elimina repo del tracking |
 
-| Query param | Ejemplo            | Descripción              |
-|-------------|--------------------|--------------------------|
-| `first`     | `?first=25`        | Repos por búsqueda (1-100, default 10) |
+### Repository Data
 
-```
-→ 200 {
-    keyword: "kubernetes",
-    totalCount: 85000,
-    repositories: [
-      {
-        githubId: 123,
-        name: "kubernetes",
-        fullName: "kubernetes/kubernetes",
-        owner: "kubernetes",
-        description: "...",
-        url: "https://github.com/kubernetes/kubernetes",
-        stars: 120000,
-        forks: 42000,
-        language: "Go",
-        createdAt: "2014-06-06T...",
-        lastPush: "2025-01-...",
-        stars24h: 120,
-        stars7d: 850,
-        score: 1847.5
-      }
-    ]
-  }
-```
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/me/repos/:id/history` | Historial de snapshots (stars/forks over time) |
+| `GET` | `/me/repos/:id/commits` | Commits paginados |
+| `GET` | `/me/repos/:id/prs` | Pull requests paginados |
+| `GET` | `/me/repos/:id/issues` | Issues paginadas |
+| `GET` | `/me/repos/:id/branches` | Branches del repo |
+| `GET` | `/me/repos/:id/releases` | Releases paginados |
+| `GET` | `/me/repos/:id/activity` | Resumen de actividad (7d) |
+| `GET` | `/me/repos/:id/scan-history` | Historial de scans del cron |
 
-### Trends
+### Repository Refresh
 
-```
-GET /trends
-```
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/me/repos/:id/refresh-commits` | Fuerza refresh de commits |
+| `POST` | `/me/repos/:id/refresh-all` | Fuerza refresh completo (todo) |
 
-Lista trends almacenados con filtros y paginación:
+### Public Routes
 
-| Query param | Ejemplo            | Descripción                                  |
-|-------------|--------------------|----------------------------------------------|
-| `keyword`   | `?keyword=kubernetes` | Filtro ILIKE                              |
-| `language`  | `?language=Go`     | Filtro por lenguaje                           |
-| `sort`      | `?sort=score`      | `stars`, `count`, `score` (default: `last_searched_at`) |
-| `limit`     | `?limit=20`        | Keywords por página (default 20, max 100)     |
-| `page`      | `?page=1`          | Página (default 1)                            |
-| `repoLimit` | `?repoLimit=10`    | Repos por keyword (default 10, max 50)        |
-
-```
-→ 200 {
-    total: 264,
-    page: 1,
-    limit: 20,
-    repoLimit: 10,
-    data: [
-      {
-        keyword: "rust",
-        search_count: 12,
-        repositories: [
-          {
-            fullName: "rust-lang/rust",
-            stars: 98000,
-            stars24h: 45,
-            stars7d: 310,
-            score: 1254.3
-          }
-        ]
-      }
-    ]
-  }
-```
-
-```
-GET /trends/stats
-→ 200 {
-    total_keywords: 30,
-    total_repositories: 7850,
-    total_links: 7850,
-    total_searches: 1450,
-    max_stars: 120000,
-    top_language: "TypeScript"
-  }
-```
-
-### Report
-
-```
-GET /trends/report
-```
-
-Reporte con insights agregados de toda la data colectada.
-
-```
-→ 200 {
-    generated_at: "2026-06-30T14:00:00.000Z",
-    top_repos: [
-      { full_name: "kubernetes/kubernetes", stars: 120000, ... }
-    ],
-    language_breakdown: [
-      { language: "TypeScript", count: 45, percentage: 28.3 }
-    ],
-    top_owners: [
-      { owner: "microsoft", repo_count: 12, total_stars: 450000 }
-    ],
-    per_keyword: [
-      { keyword: "rust", total_repos: 10, avg_stars: 4550, ... }
-    ],
-    newest_repos: [...],
-    most_recently_pushed: [...],
-    keyword_popularity: [...],
-    totals: {
-      total_repos: 7850,
-      total_keywords: 30,
-      total_owners: 340
-    }
-  }
-```
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/search/:keyword` | Busca repos en GitHub |
+| `GET` | `/trends` | Lista trends con filtros |
+| `GET` | `/trends/stats` | Estadísticas generales |
+| `GET` | `/trends/report` | Reporte con insights |
 
 ---
 
-## Cron
+## Data que trackeamos por repo (cada hora)
 
-`trendsCollector` corre cada hora (configurable vía `SCHEDULE` en `api/src/jobs/trendsCollector.ts`).
+### Metadata
+Stars, forks, watchers, open issues, license, language, topics, homepage, latest release, disk usage, is archived
 
-Por cada keyword:
+### Métricas de tiempo
+- **stars_24h**: estrellas ganadas últimas 24h
+- **stars_7d**: estrellas ganadas últimos 7 días
+- **score**: cálculo de trending = growth + log(stars) + recency + engagement + prVelocity + issueVelocity
 
-1. Busca repos en GitHub GraphQL.
-2. Hace UPSERT en `searches`, `repositories` y `search_repository`.
-3. Guarda snapshot en `repository_snapshots`.
-4. Calcula `stars_24h`, `stars_7d` y `score` comparando contra snapshots previas.
-5. Invalida caché de trends.
+### Commits
+SHA, mensaje, autor, fecha, URL
 
-Keywords sembradas automáticamente al arrancar (~260 palabras en `api/src/services/database.ts`), agrupadas por categoría:
+### Pull Requests
+Número, título, estado (OPEN/CLOSED/MERGED), autor, reviewers, labels, líneas agregadas/eliminadas, branch source/destination
 
-```
-language, frontend, backend, ai-ml, database, devops, mobile,
-desktop, tools, testing, data, blockchain, gamedev, general
-```
+### Issues
+Número, título, estado, autor, labels, assignees, milestone, comentarios
+
+### Branches
+Nombre, default, último commit, si tiene PR abierto
+
+### Releases
+Tag, nombre, changelog, autor, fecha, prerelease/draft
+
+### Scan History
+Timestamp de cada scan, duración, métricas encontradas (commits, PRs, issues, stars delta)
+
+---
+
+## Cron Jobs
+
+### trendsCollector (cada hora - minuto 20)
+
+Busca repos por keywords (~260 keywords sembradas).
+
+### userRepoCollector (cada hora - minuto 0)
+
+Para cada repo trackeado por usuarios:
+1. Usa token del usuario para fetch datos
+2. Actualiza metadata, snapshots, scores
+3. Fetch commits, PRs, issues, branches, releases
+4. Guarda scan history con métricas
+
+---
+
+## Redis Cache
+
+### Patrón (sin TTL, invalidación por mutación)
+
+| Ruta GET | Cache Key | Invalidado por |
+|----------|-----------|----------------|
+| `GET /me/repos` | `me:repos:{userId}` | `POST/DELETE /me/repos` |
+| `GET /me/repos/:id/commits` | `me:commits:{userId}:{repoId}:{limit}:{offset}` | `POST /me/repos/:id/refresh-*` |
+| `GET /me/repos/:id/prs` | `me:prs:{userId}:{repoId}:...` | `POST /me/repos/:id/refresh-all` |
+| `GET /me/repos/:id/issues` | `me:issues:{userId}:{repoId}:...` | `POST /me/repos/:id/refresh-all` |
+| `GET /me/repos/:id/branches` | `me:branches:{userId}:{repoId}` | `POST /me/repos/:id/refresh-all` |
+| `GET /me/repos/:id/releases` | `me:releases:{userId}:{repoId}` | `POST /me/repos/:id/refresh-all` |
+| `GET /me/repos/:id/activity` | `me:activity:{userId}:{repoId}` | `POST /me/repos/:id/refresh-all` |
+| `GET /me/repos/:id/scan-history` | `me:scan:{userId}:{repoId}:...` | `POST /me/repos/:id/refresh-all` |
 
 ---
 
@@ -226,67 +187,32 @@ desktop, tools, testing, data, blockchain, gamedev, general
 | Global | 15 min  | 200    |
 | Search | 1 min   | 60     |
 | Trends | 1 min   | 30     |
-
----
-
-## Métricas (OTLP → Grafana Cloud)
-
-| Métrica                              | Tipo      | Atributos               |
-|--------------------------------------|-----------|-------------------------|
-| `http_request_duration_seconds`      | Histogram | method, route, status_code |
-| `github_search_requests_total`       | Counter   | keyword, status         |
-| `github_search_duration_seconds`     | Histogram | —                       |
-| `github_cache_hit_requests_total`    | Counter   | keyword, status         |
-| `get_trends`                         | Counter   | —                       |
-| `get_trends_cache`                   | Counter   | —                       |
-| `get_trends_stats`                   | Counter   | —                       |
-| `get_trends_stats_cache`             | Counter   | —                       |
-| `get_trends_collector`               | Counter   | —                       |
-
-Se exportan cada 15s vía `OTLPMetricExporter` al endpoint `OTEL_EXPORTER_OTLP_ENDPOINT`.
-
----
-
-## Trazas (OTLP → Grafana Cloud)
-
-OpenTelemetry auto-instrumentación para HTTP y Express, más spans manuales en:
-
-- `github.graphql.search` — cada llamada a GitHub GraphQL
-- `trends.collect` — cada ejecución del cron
+| Auth   | 15 min  | 10     |
 
 ---
 
 ## Variables de Entorno
 
-Ver `.env`:
-
 | Variable                         | Requerida | Descripción                          |
 |----------------------------------|-----------|--------------------------------------|
-| `GITHUB_TOKEN`                   | ✅        | Token GitHub con scope repo          |
+| `GITHUB_TOKEN_CRON`              | ✅        | Token para cron trends               |
+| `GITHUB_TOKEN_SEARCH`            | ✅        | Token para search público            |
 | `DATABASE_URL`                   | ✅        | PostgreSQL connection string         |
 | `REDIS_URL`                      | ✅        | Redis connection string              |
-| `API_KEY`                        | ✅        | API key para autenticar endpoints    |
-| `CORS_ORIGIN`                    | —         | Origen permitido (default localhost) |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`    | —         | Endpoint OTLP (Grafana Cloud)        |
-| `OTEL_EXPORTER_OTLP_HEADERS`     | —         | Auth header para OTLP                |
-| `GRAFANA_LOKI_URL`               | —         | Endpoint Loki para logs              |
-| `GRAFANA_LOKI_USERNAME`          | —         | Usuario Loki                         |
-| `GRAFANA_CLOUD_API_KEY`          | —         | API key Grafana Cloud                |
-| `GRAFANA_LOGS_WRITE`             | —         | Token write para Loki                |
+| `API_KEY`                        | ✅        | API key para rutas públicas          |
+| `CORS_ORIGIN`                    | —         | Origen permitido                     |
+| `FRONTEND_URL`                   | —         | URL frontend para CORS               |
+| `EMAIL_FRONTEND_URL`             | —         | URL frontend para links de email     |
 | `JWT_ACCESS_SECRET`              | ✅        | Secret para access tokens            |
 | `JWT_REFRESH_SECRET`             | ✅        | Secret para refresh tokens           |
-| `JWT_ACCESS_EXPIRES_IN`          | —         | TTL access token (default 15m)       |
-| `JWT_REFRESH_EXPIRES_IN`         | —         | TTL refresh token (default 7d)       |
-| `COOKIE_SECURE`                  | —         | Secure flag cookies (default false)  |
-| `FRONTEND_URL`                   | —         | URL frontend para CORS/dev           |
-| `EMAIL_FRONTEND_URL`             | —         | URL frontend para links de email     |
-| `GOOGLE_HOST`                    | —         | Servidor SMTP Gmail                  |
-| `GOOGLE_PORT`                    | —         | Puerto SMTP (default 587)            |
-| `GOOGLE_LONNSOM`                 | —         | Email de Gmail                       |
-| `GOOGLE_PS`                      | —         | App Password de Gmail                |
-| `GOOGLE_PS2`                     | —         | App Password secundaria (fallback)   |
-| `EMAIL_FROM`                     | —         | Remitente de emails                  |
 | `TOKEN_ENCRYPTION_KEY`           | ✅        | Clave AES-256-GCM para tokens GitHub (64 hex) |
+| `GOOGLE_HOST`                    | —         | Servidor SMTP                        |
+| `GOOGLE_PORT`                    | —         | Puerto SMTP (default 587)            |
+| `GOOGLE_LONNSOM`                 | —         | Email SMTP                           |
+| `GOOGLE_PS`                      | —         | App Password SMTP                    |
+| `EMAIL_FROM`                     | —         | Remitente de emails                  |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`    | —         | Endpoint OTLP                        |
+| `GRAFANA_LOKI_URL`               | —         | Endpoint Loki                        |
 
 ---
 
@@ -307,79 +233,51 @@ npm run build && npm start
 
 ---
 
-## Deploy con Docker Compose
+## Deploy con Docker
 
 ```bash
-docker-compose up -d
+docker-compose up -d --build api
 ```
-
-Servicios:
-
-| Nombre    | Puerto | Health check                       |
-|-----------|--------|------------------------------------|
-| postgres  | 5432   | `pg_isready`                       |
-| redis     | 6379   | `redis-cli ping`                   |
-| api       | 3000   | —                                  |
-| alloy     | 12345  | — (logs → Grafana Cloud Loki)      |
-
-La API se construye desde `api/Dockerfile` (Node 18 Alpine).
-
----
-
-## Postman
-
-Importar `GitHub-Analytics-API.postman_collection.json`.
-
-Variable: `baseUrl = http://localhost:3000`
-
-Colección incluye:
-
-- `GET /health`
-- Auth: `/auth/register`, `/auth/verify-email`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/forgot-password`, `/auth/reset-password`, `/me`
-- `GET /search/{keyword}` (3 ejemplos, incluyendo `?first=`)
-- `GET /trends` (con filtros: keyword, language, sort, limit, page, repoLimit)
-- `GET /trends/stats`
-- `GET /trends/report`
-
-Variables: `baseUrl`, `apiKey`, `email`, `password`, `verificationToken`, `resetToken`.
 
 ---
 
 ## Estructura del proyecto
 
 ```
-.
-├── api/
-│   ├── src/
-│   │   ├── server.ts              # Entry point, carga dotenv + OTel
-│   │   ├── app.ts                 # Express app setup
-│   │   ├── config/
-│   │   │   └── rateLimiters.ts    # Rate limiting config
-│   │   ├── jobs/
-│   │   │   └── trendsCollector.ts # Cron: colecta trends cada hora
-│   │   ├── middlewares/
-│   │   │   ├── auth.ts            # API key validation
-│   │   │   ├── metrics.ts         # OTel metrics definición
-│   │   │   └── tracing.ts         # OTel spans por request
-│   │   ├── otel/
-│   │   │   └── config.ts          # OpenTelemetry SDK setup
-│   │   ├── routes/
-│   │   │   ├── health.ts          # GET /health
-│   │   │   ├── search.ts          # GET /search/:keyword
-│   │   │   └── trends.ts          # GET /trends, GET /trends/stats, GET /trends/report
-│   │   └── services/
-│   │       ├── database.ts        # PostgreSQL pool
-│   │       ├── github.ts          # GitHub GraphQL client
-│   │       ├── redis.ts           # Redis client + helpers cache
-│   │       └── reports.ts         # Report generator (insights)
-│   ├── Dockerfile
-│   ├── package.json
-│   └── tsconfig.json
-├── db/init/
-│   └── 01-init.sql                # Schema PostgreSQL
-├── config.alloy                   # Grafana Alloy → Loki config
-├── docker-compose.yml
-├── .env                           # Variables de entorno (no subir)
-├── .gitignore
-└── GitHub-Analytics-API.postman_collection.json
+api/src/
+├── server.ts                    # Entry point
+├── app.ts                       # Express setup
+├── config/
+│   ├── auth.ts                  # JWT secrets
+│   └── rateLimiters.ts          # Rate limiting
+├── jobs/
+│   ├── trendsCollector.ts       # Cron: keywords cada hora
+│   ├── userRepoCollector.ts     # Cron: repos de usuarios cada hora
+│   └── xPoster.ts              # Cron: posts a Bluesky
+├── middlewares/
+│   ├── auth.ts                  # API key validation
+│   ├── requireAuth.ts           # JWT validation
+│   ├── metrics.ts               # OTel metrics
+│   └── tracing.ts               # OTel tracing
+├── routes/
+│   ├── health.ts                # GET /health
+│   ├── search.ts                # GET /search/:keyword
+│   ├── trends.ts                # GET /trends/*
+│   ├── auth.ts                  # POST /auth/*
+│   ├── me.ts                    # GET/POST/DELETE /me/*
+│   └── authDebug.ts             # GET /auth/debug/*
+├── services/
+│   ├── auth.ts                  # User registration/login
+│   ├── github.ts                # GitHub GraphQL client
+│   ├── commits.ts               # Fetch/store commits
+│   ├── repoData.ts              # Fetch PRs, Issues, Branches, Releases
+│   ├── repoScoring.ts           # Score calculation + snapshots
+│   ├── database.ts              # PostgreSQL pool + migrations
+│   ├── redis.ts                 # Redis client + cache helpers
+│   ├── userRepos.ts             # User repo management
+│   ├── email.ts                 # SMTP email sending
+│   └── reports.ts               # Report generator
+└── utils/
+    ├── tokenCrypto.ts           # AES-256-GCM encryption
+    └── crypto.ts                # Password hashing
 ```
