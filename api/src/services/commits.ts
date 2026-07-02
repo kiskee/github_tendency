@@ -80,6 +80,7 @@ async function fetchCommitsFromGitHub(
       );
 
       if (response.data.errors) {
+        console.error(`[commits] GraphQL errors for ${owner}/${name}:`, JSON.stringify(response.data.errors));
         span.setStatus({ code: SpanStatusCode.ERROR, message: "GraphQL errors" });
         span.setAttribute("github.commits.error", JSON.stringify(response.data.errors));
         return { commits: [], hasMore: false };
@@ -91,6 +92,7 @@ async function fetchCommitsFromGitHub(
 
       const repo = response.data.data.repository;
       if (!repo || !repo.defaultBranchRef?.target?.history?.edges) {
+        console.warn(`[commits] No commit history found for ${owner}/${name}. Repo: ${!!repo}, defaultBranchRef: ${!!repo?.defaultBranchRef}`);
         span.setStatus({ code: SpanStatusCode.ERROR, message: "No commit history found" });
         return { commits: [], hasMore: false };
       }
@@ -130,7 +132,9 @@ export async function fetchAndStoreCommits(
   token: string,
   first: number = 10
 ): Promise<CommitInfo[]> {
+  console.log(`[commits] Fetching commits for ${owner}/${name} (first: ${first})`);
   const { commits } = await fetchCommitsFromGitHub(owner, name, token, first);
+  console.log(`[commits] Got ${commits.length} commits from GitHub for ${owner}/${name}`);
   
   for (const commit of commits) {
     try {
@@ -153,6 +157,7 @@ export async function fetchAndStoreCommits(
     }
   }
   
+  console.log(`[commits] Stored ${commits.length} commits for ${owner}/${name} (repoId: ${repositoryId})`);
   return commits;
 }
 

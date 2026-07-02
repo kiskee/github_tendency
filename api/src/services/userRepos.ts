@@ -119,8 +119,14 @@ export async function addUserRepository(userId: number, fullName: string): Promi
   await updateRepoScores(repoId, repo);
   
   // Fetch and store recent commits
-  const [owner, name] = fullName.split('/');
-  await fetchAndStoreCommits(repoId, owner, name, token, 10);
+  try {
+    const [owner, name] = fullName.split('/');
+    console.log(`[userRepos] Fetching commits for ${owner}/${name}`);
+    await fetchAndStoreCommits(repoId, owner, name, token, 10);
+    console.log(`[userRepos] Commits fetched successfully for ${fullName}`);
+  } catch (commitError) {
+    console.error(`[userRepos] Failed to fetch commits for ${fullName}:`, commitError);
+  }
 
   const linkRes = await pool.query<{ id: number }>(
     `INSERT INTO user_repositories (user_id, repository_id, full_name)
