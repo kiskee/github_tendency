@@ -23,6 +23,14 @@ export interface UserRepository {
     stars7d: number;
     score: number;
     lastPush: string;
+    openIssues: number;
+    watchers: number;
+    license: string | null;
+    latestRelease: string | null;
+    topics: string[];
+    homepageUrl: string | null;
+    isArchived: boolean;
+    diskUsage: number;
   };
 }
 
@@ -125,7 +133,8 @@ export async function getUserRepositories(userId: number): Promise<UserRepositor
     `SELECT ur.id, ur.full_name, ur.is_active, ur.added_at,
             r.id as repo_id, r.github_id, r.name, r.full_name as repo_full_name, r.owner,
             r.description, r.url, r.stars, r.forks, r.language, r.stars_24h, r.stars_7d,
-            r.score, r.pushed_at
+            r.score, r.pushed_at, r.open_issues, r.watchers, r.license, r.latest_release,
+            r.topics, r.homepage_url, r.is_archived, r.disk_usage
      FROM user_repositories ur
      JOIN repositories r ON r.id = ur.repository_id
      WHERE ur.user_id = $1 AND ur.is_active = true
@@ -140,7 +149,8 @@ export async function getUserRepositoryById(userId: number, userRepoId: number):
     `SELECT ur.id, ur.full_name, ur.is_active, ur.added_at,
             r.id as repo_id, r.github_id, r.name, r.full_name as repo_full_name, r.owner,
             r.description, r.url, r.stars, r.forks, r.language, r.stars_24h, r.stars_7d,
-            r.score, r.pushed_at
+            r.score, r.pushed_at, r.open_issues, r.watchers, r.license, r.latest_release,
+            r.topics, r.homepage_url, r.is_archived, r.disk_usage
      FROM user_repositories ur
      JOIN repositories r ON r.id = ur.repository_id
      WHERE ur.id = $1 AND ur.user_id = $2`,
@@ -204,6 +214,14 @@ function mapUserRepositoryRow(row: any): UserRepository {
       stars7d: row.stars_7d,
       score: row.score,
       lastPush: row.pushed_at,
+      openIssues: row.open_issues,
+      watchers: row.watchers,
+      license: row.license,
+      latestRelease: row.latest_release,
+      topics: row.topics,
+      homepageUrl: row.homepage_url,
+      isArchived: row.is_archived,
+      diskUsage: row.disk_usage,
     },
   };
 }
