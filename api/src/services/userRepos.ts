@@ -2,6 +2,7 @@ import { pool } from "./database.js";
 import { getGitHubRepository, type GitHubRepo } from "./github.js";
 import { encryptToken, decryptToken } from "../utils/tokenCrypto.js";
 import { saveSnapshot, updateRepoScores } from "./repoScoring.js";
+import { fetchAndStoreCommits, getRepositoryCommits, getRepositoryCommitsCount } from "./commits.js";
 
 export interface UserRepository {
   id: number;
@@ -115,6 +116,10 @@ export async function addUserRepository(userId: number, fullName: string): Promi
   const repoId = await upsertRepository(repo);
   await saveSnapshot(repoId, repo);
   await updateRepoScores(repoId, repo);
+  
+  // Fetch and store recent commits
+  const [owner, name] = fullName.split('/');
+  await fetchAndStoreCommits(repoId, owner, name, token, 10);
 
   const linkRes = await pool.query<{ id: number }>(
     `INSERT INTO user_repositories (user_id, repository_id, full_name)
@@ -224,4 +229,29 @@ function mapUserRepositoryRow(row: any): UserRepository {
       diskUsage: row.disk_usage,
     },
   };
+}
+
+export async function getUserRepositoryCommits(
+  userId: number,
+  userRepoId: number,
+  limit: number = 10,
+  offset: number = 0
+): Promise<{ commits: any[]; total: number }> {
+  // First verify the user owns this repository
+  const repoCheck = await pool.query(
+    `SELECT ur.repository_id 
+     FROM user_repositories ur
+     WHERE ur.id = $1 AND ur.user_id = $2`,
+    [userRepoId, userId]
+  );
+  
+  if (repoCheck.rowCount === 0) {
+    throw new Error("Repository not found");
+  }
+  
+  const repositoryId = repoCheck.rows[0].repository_id;
+  const commits = await getRepositoryCommits(repositoryId, limit, offset);
+  const total = await getRepositoryCommitsCount(repositoryId);
+  
+  return { commits, total };
 }

@@ -6,7 +6,7 @@ import { redisClient } from "../server.js";
 const tracer = trace.getTracer("github-analytics-api");
 
 const GITHUB_TOKEN_SEARCH = process.env.GITHUB_TOKEN_SEARCH;
-const GITHUB_GRAPHQL_URL = "https://api.github.com/graphql";
+export const GITHUB_GRAPHQL_URL = "https://api.github.com/graphql";
 
 const SEARCH_REPOSITORIES_QUERY = `
   query SearchRepositories($query: String!, $first: Int!) {

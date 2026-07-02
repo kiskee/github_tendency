@@ -380,7 +380,26 @@ export async function runMigrations(): Promise<void> {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)`);
 
-    await pool.query("TRUNCATE TABLE users CASCADE");
+    // Repository commits table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS repository_commits (
+        id SERIAL PRIMARY KEY,
+        repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+        sha VARCHAR(40) NOT NULL,
+        message TEXT,
+        author_name VARCHAR(255),
+        author_email VARCHAR(255),
+        author_date TIMESTAMP,
+        url VARCHAR(512),
+        collected_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(repository_id, sha)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_repository_commits_repo ON repository_commits(repository_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_repository_commits_date ON repository_commits(author_date)`);
+
+    // We'll keep the TRUNCATE for development, but comment it out for production
+    // await pool.query("TRUNCATE TABLE users CASCADE");
 
     console.log("[db] Migrations applied successfully");
   } catch (err) {

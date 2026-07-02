@@ -4,6 +4,7 @@ import { app } from "./app.js";
 import { redisClient } from "./services/redis.js";
 import { runMigrations } from "./services/database.js";
 import { startTrendsCollector } from "./jobs/trendsCollector.js";
+import { startUserRepoCollector } from "./jobs/userRepoCollector.js";
 import { startPoster } from "./jobs/xPoster.js";
 
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,7 @@ redisClient.connect().then(() => console.log("Redis Connected")).catch(
 
 runMigrations().then(() => {
   startTrendsCollector();
+  startUserRepoCollector();
   startPoster();
 });
 

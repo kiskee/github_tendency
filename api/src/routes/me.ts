@@ -8,6 +8,7 @@ import {
   getUserRepositories,
   removeUserRepository,
   getRepositoryHistory,
+  getUserRepositoryCommits,
 } from "../services/userRepos.js";
 import { z } from "zod";
 
@@ -148,6 +149,35 @@ router.get("/repos/:id/history", requireAuth, async (req: Request, res: Response
   } catch (error) {
     console.error("[me] Failed to get repository history:", error);
     res.status(500).json({ error: "Failed to get repository history" });
+  }
+});
+
+router.get("/repos/:id/commits", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const userRepoId = parseInt(req.params.id, 10);
+  if (isNaN(userRepoId)) {
+    res.status(400).json({ error: "Invalid repository id" });
+    return;
+  }
+
+  const limit = parseInt(req.query.limit as string, 10) || 10;
+  const offset = parseInt(req.query.offset as string, 10) || 0;
+
+  try {
+    const { commits, total } = await getUserRepositoryCommits(
+      req.user.userId,
+      userRepoId,
+      limit,
+      offset
+    );
+    res.status(200).json({ data: commits, total, limit, offset });
+  } catch (error) {
+    console.error("[me] Failed to get repository commits:", error);
+    res.status(500).json({ error: "Failed to get repository commits" });
   }
 });
 
