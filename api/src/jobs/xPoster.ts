@@ -17,28 +17,24 @@ function formatPost(report: Awaited<ReturnType<typeof generateReport>>): string 
   const top = report.top_repos[0];
   const topKeyword = report.per_keyword[0];
   const topLang = report.language_breakdown[0];
-  const topOwner = report.top_owners[0];
   const t = report.totals;
 
   const fmt = (n: number): string =>
     n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
 
   const lines = [
-    `🔥 "${topKeyword.keyword}" is trending on GitHub`,
-    `${formatDate()} — ${topKeyword.total_repos} repos (⭐${fmt(topKeyword.avg_stars)} avg, ⭐${fmt(topKeyword.max_stars)} max)`,
-    ``,
-    `🥇 ${top.full_name} ⭐${fmt(top.stars)} 🍴${fmt(top.forks)} forks`,
-    `📈 ${topLang.language} ${topLang.percentage}% · 👤 ${topOwner.owner} (${topOwner.repo_count} repos, ⭐${fmt(topOwner.total_stars)} total)`,
-    ``,
-    `📊 ${t.total_repos.toLocaleString()} repos · ${t.total_keywords} keywords · ${t.total_owners} unique authors`,
-    `🌐 ${DASHBOARD_URL} — full report`,
-    `#GitHub #OpenSource`,
+    `🔥 GitHub Trends — ${formatDate()}`,
+    `Top keyword: ${topKeyword.keyword} (${topKeyword.total_repos} repos)`,
+    `Top repo: ${top.full_name} ⭐${fmt(top.stars)}`,
+    `Top language: ${topLang.language} ${topLang.percentage}%`,
+    `${t.total_repos.toLocaleString()} repos · ${t.total_keywords} keywords`,
+    `${DASHBOARD_URL}`,
   ];
 
   return lines.join("\n");
 }
 
-const SCHEDULE_MORNING = "0 8 * * * *";
+const SCHEDULE_MORNING = "0 8 * * *";
 const SCHEDULE_EVENING = "0 20 * * *";
 
 export function startPoster() {
